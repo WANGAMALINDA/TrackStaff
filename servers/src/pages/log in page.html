@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TrackServ - Sign In</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --green: #087f4f;
+      --green-dark: #066b43;
+      --green-light: #e7f5ee;
+      --text: #18212f;
+      --muted: #68717d;
+      --border: #cfd6d2;
+    }
+
+    body {
+      min-height: 100vh;
+      font-family: Arial, Helvetica, sans-serif;
+      color: var(--text);
+      background: #f8fbfa;
+
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      padding: 30px 18px;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    /* Background decorations */
+
+    body::before,
+    body::after {
+      content: "";
+      position: fixed;
+      width: 360px;
+      height: 360px;
+      border-radius: 50%;
+      background: #e7f2ed;
+      z-index: -2;
+    }
+
+    body::before {
+      top: -170px;
+      right: -120px;
+    }
+
+    body::after {
+      bottom: -190px;
+      left: -130px;
+    }
+
+    .pattern {
+      position: fixed;
+      top: 30px;
+      left: 28px;
+      width: 120px;
+      height: 120px;
+
+      background-image:
+        radial-gradient(#8db9a6 2px, transparent 2px);
+
+      background-size: 25px 25px;
+      opacity: 0.7;
+      z-index: -1;
+    }
+
+    /* Main */
+
+    .login-wrapper {
+      width: 100%;
+      max-width: 760px;
+    }
+
+    .card {
+      background: rgba(255, 255, 255, 0.97);
+
+      border-radius: 24px;
+
+      padding: 42px 54px 35px;
+
+      box-shadow:
+        0 16px 45px rgba(20, 50, 40, 0.10);
+
+      border: 1px solid rgba(220, 228, 224, 0.75);
+    }
+
+    /* Logo */
+
+    .brand {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+
+    .logo {
+      width: 72px;
+      height: 72px;
+      margin: 0 auto 12px;
+      position: relative;
+    }
+
+    .pin {
+      width: 58px;
+      height: 58px;
+
+      background: var(--green);
+
+      border-radius: 50% 50% 50% 0;
+
+      transform: rotate(-45deg);
+
+      margin: 7px auto 0;
+
+      position: relative;
+    }
+
+    .pin::after {
+      content: "";
+
+      width: 21px;
+      height: 21px;
+
+      background: white;
+
+      border-radius: 50%;
+
+      position: absolute;
+
+      top: 18px;
+      left: 18px;
+    }
+
+    .brand-name {
+      font-size: 45px;
+      font-weight: 800;
+      letter-spacing: -1.8px;
+    }
+
+    .brand-name span {
+      color: var(--green);
+    }
+
+    .tagline {
+      color: #6b737b;
+      font-size: 19px;
+      margin-top: 6px;
+    }
+
+    /* Heading */
+
+    h1 {
+      text-align: center;
+      font-size: 31px;
+      margin-top: 35px;
+      margin-bottom: 10px;
+    }
+
+    .subtitle {
+      text-align: center;
+      color: var(--muted);
+      font-size: 17px;
+      margin-bottom: 38px;
+    }
+
+    /* Form */
+
+    .field {
+      margin-bottom: 26px;
+    }
+
+    label {
+      display: block;
+
+      font-size: 17px;
+      font-weight: 700;
+
+      margin-bottom: 10px;
+    }
+
+    .input-wrap {
+      position: relative;
+    }
+
+    input[type="email"],
+    input[type="password"],
+    input[type="text"] {
+      width: 100%;
+      height: 65px;
+
+      border: 1.5px solid var(--border);
+
+      border-radius: 14px;
+
+      padding: 0 58px 0 80px;
+
+      font-size: 17px;
+
+      outline: none;
+
+      transition: 0.2s;
+
+      background: white;
+    }
+
+    input:focus {
+      border-color: var(--green);
+
+      box-shadow:
+        0 0 0 4px rgba(8, 127, 79, 0.09);
+    }
+
+    /* Input icons */
+
+    .input-icon {
+      position: absolute;
+
+      left: 14px;
+      top: 10px;
+
+      width: 45px;
+      height: 45px;
+
+      border-radius: 50%;
+
+      background: var(--green-light);
+
+      display: grid;
+      place-items: center;
+
+      font-size: 21px;
+    }
+
+    /* Password eye */
+
+    .toggle-password {
+      position: absolute;
+
+      right: 16px;
+      top: 20px;
+
+      border: 0;
+
+      background: transparent;
+
+      cursor: pointer;
+
+      font-size: 21px;
+
+      color: #596573;
+    }
+
+    /* Forgot password */
+
+    .forgot {
+      display: flex;
+      justify-content: flex-end;
+
+      margin-top: -7px;
+      margin-bottom: 20px;
+    }
+
+    .forgot a,
+    .contact {
+      color: var(--green);
+
+      font-weight: 700;
+
+      text-decoration: none;
+    }
+
+    .forgot a:hover,
+    .contact:hover {
+      text-decoration: underline;
+    }
+
+    /* Remember */
+
+    .remember {
+      display: flex;
+
+      align-items: center;
+
+      gap: 12px;
+
+      font-size: 16px;
+
+      margin-bottom: 25px;
+
+      cursor: pointer;
+    }
+
+    .remember input {
+      width: 25px;
+      height: 25px;
+
+      accent-color: var(--green);
+
+      padding: 0;
+    }
+
+    /* Sign in button */
+
+    .sign-in {
+      width: 100%;
+      height: 65px;
+
+      border: 0;
+
+      border-radius: 13px;
+
+      background: var(--green);
+
+      color: white;
+
+      font-size: 20px;
+
+      font-weight: 700;
+
+      cursor: pointer;
+
+      transition: 0.2s;
+    }
+
+    .sign-in:hover {
+      background: var(--green-dark);
+
+      transform: translateY(-1px);
+    }
+
+    /* OR */
+
+    .or {
+      display: flex;
+
+      align-items: center;
+
+      gap: 18px;
+
+      color: #5f6871;
+
+      margin: 27px 0;
+    }
+
+    .or::before,
+    .or::after {
+      content: "";
+
+      height: 1px;
+
+      background: #e0e4e2;
+
+      flex: 1;
+    }
+
+    /* Help */
+
+    .help {
+      text-align: center;
+
+      color: #4c5661;
+
+      font-size: 16px;
+    }
+
+    .headset {
+      display: inline-grid;
+
+      place-items: center;
+
+      width: 43px;
+      height: 43px;
+
+      border-radius: 50%;
+
+      background: var(--green-light);
+
+      margin-right: 10px;
+
+      vertical-align: middle;
+    }
+
+    /* Security */
+
+    .security {
+      text-align: center;
+
+      color: #7b858e;
+
+      margin: 32px 0 24px;
+
+      font-size: 15px;
+    }
+
+    .security span {
+      margin-right: 8px;
+    }
+
+    /* Footer */
+
+    footer {
+      text-align: center;
+
+      background: #f1f4f3;
+
+      margin: 0 -54px -35px;
+
+      padding: 20px;
+
+      color: #5f6870;
+
+      font-size: 15px;
+    }
+
+    footer strong {
+      color: var(--green);
+    }
+
+    /* Message */
+
+    .message {
+      display: none;
+
+      padding: 12px 15px;
+
+      border-radius: 10px;
+
+      margin-bottom: 18px;
+
+      font-size: 14px;
+
+      text-align: center;
+    }
+
+    .message.show {
+      display: block;
+
+      background: #e8f6ef;
+
+      color: #08683f;
+    }
+
+    /* Mobile */
+
+    @media (max-width: 650px) {
+
+      body {
+        padding: 18px 12px;
+      }
+
+      .card {
+        padding: 30px 22px 28px;
+
+        border-radius: 20px;
+      }
+
+      .brand-name {
+        font-size: 37px;
+      }
+
+      .tagline {
+        font-size: 16px;
+      }
+
+      h1 {
+        font-size: 27px;
+      }
+
+      .subtitle {
+        font-size: 15px;
+      }
+
+      input[type="email"],
+      input[type="password"],
+      input[type="text"] {
+        height: 59px;
+
+        padding-left: 68px;
+      }
+
+      .sign-in {
+        height: 59px;
+      }
+
+      footer {
+        margin-left: -22px;
+        margin-right: -22px;
+        margin-bottom: -28px;
+      }
+
+      .pattern {
+        display: none;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="pattern"></div>
+
+  <main class="login-wrapper">
+
+    <section class="card">
+
+      <!-- BRAND -->
+      <div class="brand">
+
+        <div class="logo">
+          <div class="pin"></div>
+        </div>
+
+        <div class="brand-name">
+          Track<span>Serv</span>
+        </div>
+
+        <div class="tagline">
+          Simple. Fast. Done.
+        </div>
+
+      </div>
+
+
+      <!-- TITLE -->
+
+      <h1>
+        Welcome Back!
+      </h1>
+
+      <p class="subtitle">
+        Sign in to your account to continue.
+      </p>
+
+
+      <!-- MESSAGE -->
+
+      <div
+        id="message"
+        class="message">
+      </div>
+
+
+      <!-- LOGIN FORM -->
+
+      <form id="loginForm">
+
+        <!-- EMAIL -->
+
+        <div class="field">
+
+          <label for="email">
+            Email Address
+          </label>
+
+          <div class="input-wrap">
+
+            <div class="input-icon">
+              ✉
+            </div>
+
+            <input
+              id="email"
+              type="email"
+              placeholder="Enter your email address"
+              required
+            />
+
+          </div>
+
+        </div>
+
+
+        <!-- PASSWORD -->
+
+        <div class="field">
+
+          <label for="password">
+            Password
+          </label>
+
+          <div class="input-wrap">
+
+            <div class="input-icon">
+              🔒
+            </div>
+
+            <input
+              id="password"
+              type="password"
+              placeholder="Enter your password"
+              required
+            />
+
+            <button
+              type="button"
+              class="toggle-password"
+              id="togglePassword">
+
+              👁
+
+            </button>
+
+          </div>
+
+        </div>
+
+
+        <!-- FORGOT PASSWORD -->
+
+        <div class="forgot">
+
+          <a
+            href="#"
+            id="forgotPassword">
+
+            Forgot password?
+
+          </a>
+
+        </div>
+
+
+        <!-- REMEMBER ME -->
+
+        <label class="remember">
+
+          <input
+            type="checkbox"
+            id="remember"
+          />
+
+          <span>
+            Remember me
+          </span>
+
+        </label>
+
+
+        <!-- SIGN IN -->
+
+        <button
+          class="sign-in"
+          type="submit">
+
+          Sign In →
+          
+        </button>
+
+      </form>
+
+
+      <!-- OR -->
+
+      <div class="or">
+        OR
+      </div>
+
+
+      <!-- HELP -->
+
+      <div class="help">
+
+        <span class="headset">
+          ♧
+        </span>
+
+        Need help?
+
+        <a
+          class="contact"
+          href="mailto:admin@trackserv.example">
+
+          Contact your administrator
+
+        </a>
+
+      </div>
+
+
+      <!-- SECURITY -->
+
+      <div class="security">
+
+        <span>
+          ♢
+        </span>
+
+        Your data is secure and protected
+
+      </div>
+
+
+      <!-- FOOTER -->
+
+      <footer>
+
+        © 2025
+
+        <strong>
+          TrackServ
+        </strong>
+
+        . All rights reserved.
+
+      </footer>
+
+    </section>
+
+  </main>
+
+
+  <!-- JAVASCRIPT -->
+
+  <script>
+
+    const form =
+      document.getElementById("loginForm");
+
+    const email =
+      document.getElementById("email");
+
+    const password =
+      document.getElementById("password");
+
+    const message =
+      document.getElementById("message");
+
+    const toggle =
+      document.getElementById("togglePassword");
+
+    const forgot =
+      document.getElementById("forgotPassword");
+
+
+    /* SHOW / HIDE PASSWORD */
+
+    toggle.addEventListener(
+      "click",
+      function () {
+
+        if (password.type === "password") {
+
+          password.type = "text";
+
+          toggle.textContent = "🙈";
+
+        } else {
+
+          password.type = "password";
+
+          toggle.textContent = "👁";
+
+        }
+
+      }
+    );
+
+
+    /* LOGIN */
+
+    form.addEventListener(
+      "submit",
+      function (event) {
+
+        event.preventDefault();
+
+        if (
+          !email.value ||
+          !password.value
+        ) {
+
+          return;
+
+        }
+
+        message.textContent =
+          "Login form submitted successfully.";
+
+        message.classList.add("show");
+
+      }
+    );
+
+
+    /* FORGOT PASSWORD */
+
+    forgot.addEventListener(
+      "click",
+      function (event) {
+
+        event.preventDefault();
+
+        message.textContent =
+          "Password recovery would connect to your TrackServ password-reset service.";
+
+        message.classList.add("show");
+
+      }
+    );
+
+  </script>
+
+</body>
+</html>

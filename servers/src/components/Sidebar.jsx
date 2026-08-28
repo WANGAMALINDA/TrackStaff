@@ -535,6 +535,7 @@ export default function Sidebar({ children, activePage = "home", onPageChange, s
             <button
               onClick={handleLogout}
               style={{
+                zIndex: 500,
                 width: "100%",
                 display: "flex",
                 alignItems: "center",

@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useMemo } from "react";
-import { MapContainer, TileLayer, Marker, Popup, Circle, Polygon, useMap } from "react-leaflet";
+import React, { useState, useEffect, useMemo, useRef } from "react";
+import { useNavigate } from "react-router-dom";
+import { MapContainer, TileLayer, Marker, Popup, Circle, Polygon, Polyline, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import {
@@ -15,6 +16,11 @@ import {
   Send,
   Trash2,
   Flame,
+  Camera,
+  Image as ImageIcon,
+  Navigation,
+  Undo2,
+  X,
 } from "lucide-react";
 import Sidebar from "../components/Sidebar";
 import Footer from "../components/footer";
@@ -45,6 +51,8 @@ const COLORS = {
 };
 
 const cardShadow = "0 12px 30px rgba(16, 24, 40, 0.05)";
+const IDLE_TIMEOUT_MS = 5 * 60 * 1000;
+const REPORT_MEDIA_BUCKET = "images";
 
 const TSHWANE_BOUNDARY = [
   [-25.42, 27.93], [-25.35, 28.15], [-25.33, 28.35], [-25.40, 28.55],
@@ -53,7 +61,6 @@ const TSHWANE_BOUNDARY = [
 ];
 
 const TSHWANE_BOUNDS = L.latLngBounds(TSHWANE_BOUNDARY.map((p) => L.latLng(p[0], p[1])));
-
 const DEFAULT_MAP_CENTER = [-25.7461, 28.1881];
 
 const markerColors = {
@@ -81,12 +88,6 @@ const chartFilterLabels = {
   unresolved: "Open / Unresolved",
 };
 
-const severityStyles = {
-  High: { bg: "#fee2e2", fg: "#b91c1c" },
-  Medium: { bg: "#fef3c7", fg: "#b45309" },
-  Low: { bg: "#f3f4f6", fg: "#4b5563" },
-};
-
 const CATEGORY_VISUALS = [
   { test: (n) => n.includes("water"), icon: Droplet, color: "#3b82f6" },
   { test: (n) => n.includes("road") || n.includes("infrastructure"), icon: TriangleAlert, color: "#f59e0b" },
@@ -105,7 +106,7 @@ function markerStatus(status) {
   if (status === "in_progress") return "in-progress";
   if (status === "resolved" || status === "closed") return "resolved";
   if (status === "under_review") return "under-review";
-  return "unresolved"; // "open", "rejected"
+  return "unresolved"; 
 }
 
 const STATUS_META = {
@@ -116,7 +117,6 @@ const STATUS_META = {
   Rejected: { label: "Rejected", fg: COLORS.red500, bg: COLORS.red100 },
 };
 
-// Maps the raw `reports.status` value from the database to a display label.
 const STATUS_DISPLAY = {
   open: "Assigned",
   in_progress: "In Progress",
@@ -195,6 +195,8 @@ function BoundsEnforcer() {
 }
 
 export default function Dashboard({ name = "trackserv-dashboard-root" }) {
+  const navigate = useNavigate();
+
   const [currentUser, setCurrentUser] = useState(null);
   const [reports, setReports] = useState([]);
   const [resolutions, setResolutions] = useState({});
@@ -204,16 +206,54 @@ export default function Dashboard({ name = "trackserv-dashboard-root" }) {
   const [selectedIssueId, setSelectedIssueId] = useState(null);
   const selectedIssue = reports.find((i) => i.id === selectedIssueId) || reports[0] || null;
 
-  const [completedTasks, setCompletedTasks] = useState({});
-  const [commentDraft, setCommentDraft] = useState("");
-
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [mapFilter, setMapFilter] = useState("all");
   const [chartFilter, setChartFilter] = useState("all");
 
   const [myLocation, setMyLocation] = useState(null);
+  const [routeCoordinates, setRouteCoordinates] = useState([]);
+  const [routeInfo, setRouteInfo] = useState(null);
 
-  // Load the signed-in staff member's profile.
+  const [completionStep, setCompletionStep] = useState("idle"); 
+  const [completionFile, setCompletionFile] = useState(null);
+  const [completionPreviewUrl, setCompletionPreviewUrl] = useState(null);
+  const [completionNote, setCompletionNote] = useState("");
+  const [submittingCompletion, setSubmittingCompletion] = useState(false);
+  const [completionError, setCompletionError] = useState("");
+
+  const [viewDetailsIssue, setViewDetailsIssue] = useState(null);
+
+  useEffect(() => {
+    setCompletionStep("idle");
+    setCompletionFile(null);
+    setCompletionNote("");
+    setCompletionError("");
+    setCompletionPreviewUrl((current) => {
+      if (current) URL.revokeObjectURL(current);
+      return null;
+    });
+  }, [selectedIssueId]);
+
+  const idleTimerRef = useRef(null);
+  useEffect(() => {
+    const resetIdleTimer = () => {
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+      idleTimerRef.current = setTimeout(async () => {
+        await supabase.auth.signOut();
+        navigate("/login", { replace: true });
+      }, IDLE_TIMEOUT_MS);
+    };
+
+    const activityEvents = ["mousemove", "mousedown", "keydown", "touchstart", "scroll"];
+    activityEvents.forEach((evt) => window.addEventListener(evt, resetIdleTimer));
+    resetIdleTimer();
+
+    return () => {
+      activityEvents.forEach((evt) => window.removeEventListener(evt, resetIdleTimer));
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+    };
+  }, [navigate]);
+
   useEffect(() => {
     let isMounted = true;
     async function loadCurrentUser() {
@@ -233,10 +273,6 @@ export default function Dashboard({ name = "trackserv-dashboard-root" }) {
     };
   }, []);
 
-  // Load reports assigned to this staff member, plus any resolution/attendance
-  // records already logged for them.
-  // NOTE: this assumes reports.assigned_to stores the staff member's profile id.
-  // If your app stores a username or a group there instead, adjust the .eq() below.
   useEffect(() => {
     if (!currentUser?.id) return;
     let isMounted = true;
@@ -254,7 +290,6 @@ export default function Dashboard({ name = "trackserv-dashboard-root" }) {
         .order("assigned_at", { ascending: false });
 
       if (error) {
-        console.error("Error loading assigned reports:", error.message);
         if (isMounted) {
           setLoadError("Couldn't load your assigned issues.");
           setLoadingReports(false);
@@ -291,7 +326,6 @@ export default function Dashboard({ name = "trackserv-dashboard-root" }) {
     };
   }, [currentUser?.id]);
 
-  // Use the browser's location instead of a hardcoded coordinate.
   useEffect(() => {
     if (!navigator.geolocation) return;
     navigator.geolocation.getCurrentPosition(
@@ -299,6 +333,49 @@ export default function Dashboard({ name = "trackserv-dashboard-root" }) {
       () => setMyLocation(null)
     );
   }, []);
+
+  useEffect(() => {
+    if (!myLocation || selectedIssue?.latitude == null || selectedIssue?.longitude == null) {
+      setRouteCoordinates([]);
+      setRouteInfo(null);
+      return;
+    }
+
+    let cancelled = false;
+    async function fetchRoute() {
+      try {
+        const origin = `${myLocation.lng},${myLocation.lat}`;
+        const destination = `${selectedIssue.longitude},${selectedIssue.latitude}`;
+        const res = await fetch(
+          `https://router.project-osrm.org/route/v1/driving/${origin};${destination}?overview=full&geometries=geojson`
+        );
+        const data = await res.json();
+        if (cancelled) return;
+
+        const route = data?.routes?.[0];
+        if (route?.geometry?.coordinates) {
+          setRouteCoordinates(route.geometry.coordinates.map(([lng, lat]) => [lat, lng]));
+          setRouteInfo({
+            distanceKm: (route.distance / 1000).toFixed(1),
+            durationMin: Math.round(route.duration / 60),
+          });
+        } else {
+          setRouteCoordinates([]);
+          setRouteInfo(null);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setRouteCoordinates([]);
+          setRouteInfo(null);
+        }
+      }
+    }
+
+    fetchRoute();
+    return () => {
+      cancelled = true;
+    };
+  }, [myLocation, selectedIssue?.latitude, selectedIssue?.longitude]);
 
   const mapPoints = useMemo(() => {
     return reports
@@ -353,76 +430,175 @@ export default function Dashboard({ name = "trackserv-dashboard-root" }) {
     setChartFilter(chartFilterOptions[nextIndex]);
   };
 
-  const handleFinishTask = async (issueId) => {
-    setCompletedTasks((current) => ({ ...current, [issueId]: true }));
+  const startAttendance = async () => {
+    if (!selectedIssue) return;
+    const startedAt = new Date().toISOString();
 
-    const { error: updateError } = await supabase
+    let { error } = await supabase
       .from("reports")
-      .update({ status: "resolved" })
-      .eq("id", issueId);
+      .update({ status: "in_progress", started_at: startedAt })
+      .eq("id", selectedIssue.id);
 
-    if (updateError) {
-      console.error("Error marking report resolved:", updateError.message);
-    } else {
-      setReports((current) => current.map((r) => (r.id === issueId ? { ...r, status: "resolved" } : r)));
+    if (error) {
+      const fallback = await supabase
+        .from("reports")
+        .update({ status: "in_progress" })
+        .eq("id", selectedIssue.id);
+      error = fallback.error;
     }
 
-    if (!resolutions[issueId]) {
-      const { data, error } = await supabase
-        .from("issue_resolutions")
-        .insert({
-          report_id: issueId,
-          attendant_name: currentUser?.full_name || currentUser?.username || "Staff",
-        })
-        .select()
-        .single();
-      if (error) {
-        console.error("Error creating resolution record:", error.message);
-      } else if (data) {
-        setResolutions((current) => ({ ...current, [issueId]: data }));
-      }
+    if (error) {
+      console.error("Error starting attendance:", error.message);
+      return;
     }
+
+    setReports((current) =>
+      current.map((r) => (r.id === selectedIssue.id ? { ...r, status: "in_progress", started_at: startedAt } : r))
+    );
   };
 
-  const handleSubmitComment = async (issueId) => {
-    const text = commentDraft.trim();
-    if (!text) return;
+  const handleCompletionFileChange = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setCompletionFile(file);
+    setCompletionPreviewUrl((current) => {
+      if (current) URL.revokeObjectURL(current);
+      return URL.createObjectURL(file);
+    });
+    setCompletionStep("review");
+    event.target.value = "";
+  };
 
-    const existing = resolutions[issueId];
+  const handleSubmitCompletion = async () => {
+    if (!selectedIssue || !completionFile) return;
+    setSubmittingCompletion(true);
+    setCompletionError("");
+
     const attendantName = currentUser?.full_name || currentUser?.username || "Staff";
+    const completedAt = new Date().toISOString();
 
-    if (existing) {
-      const { data, error } = await supabase
-        .from("issue_resolutions")
-        .update({ resolution_note: text })
-        .eq("id", existing.id)
+    try {
+      const filePath = `${selectedIssue.id}/${Date.now()}-${completionFile.name}`;
+      const { error: uploadError } = await supabase.storage
+        .from(REPORT_MEDIA_BUCKET)
+        .upload(filePath, completionFile);
+      if (uploadError) throw uploadError;
+
+      const { data: publicUrlData } = supabase.storage.from(REPORT_MEDIA_BUCKET).getPublicUrl(filePath);
+      const imageUrl = publicUrlData?.publicUrl;
+
+      const { data: reportImageRow, error: reportImageError } = await supabase
+        .from("report_images")
+        .insert({ report_id: selectedIssue.id, image_url: imageUrl })
         .select()
         .single();
-      if (error) {
-        console.error("Error updating comment:", error.message);
-        return;
+      if (reportImageError) throw reportImageError;
+
+      const existing = resolutions[selectedIssue.id];
+      const payload = {
+        attendant_name: attendantName,
+        resolution_note: completionNote.trim(),
+        resolution_image_url: imageUrl,
+        attended_at: completedAt,
+      };
+
+      let resolutionRow;
+      if (existing) {
+        const { data, error } = await supabase
+          .from("issue_resolutions")
+          .update(payload)
+          .eq("id", existing.id)
+          .select()
+          .single();
+        if (error) throw error;
+        resolutionRow = data;
+      } else {
+        const { data, error } = await supabase
+          .from("issue_resolutions")
+          .insert({ report_id: selectedIssue.id, ...payload })
+          .select()
+          .single();
+        if (error) throw error;
+        resolutionRow = data;
       }
-      if (data) setResolutions((current) => ({ ...current, [issueId]: data }));
-    } else {
-      const { data, error } = await supabase
-        .from("issue_resolutions")
-        .insert({ report_id: issueId, attendant_name: attendantName, resolution_note: text })
-        .select()
-        .single();
-      if (error) {
-        console.error("Error posting comment:", error.message);
-        return;
-      }
-      if (data) setResolutions((current) => ({ ...current, [issueId]: data }));
+
+      const { error: statusError } = await supabase
+        .from("reports")
+        .update({ status: "resolved" })
+        .eq("id", selectedIssue.id);
+      if (statusError) throw statusError;
+
+      setResolutions((current) => ({ ...current, [selectedIssue.id]: resolutionRow }));
+      setReports((current) =>
+        current.map((r) =>
+          r.id === selectedIssue.id
+            ? { ...r, status: "resolved", report_images: [...(r.report_images || []), reportImageRow] }
+            : r
+        )
+      );
+      setCompletionStep("idle");
+      setCompletionFile(null);
+      setCompletionNote("");
+      setCompletionPreviewUrl((current) => {
+        if (current) URL.revokeObjectURL(current);
+        return null;
+      });
+    } catch (err) {
+      console.error("Error submitting completion:", err.message);
+      setCompletionError("Couldn't submit — please try again.");
+    } finally {
+      setSubmittingCompletion(false);
+    }
+  };
+
+  const handleUndoStep = async () => {
+    if (!selectedIssue) return;
+
+    if (completionStep === "review") {
+      setCompletionFile(null);
+      setCompletionPreviewUrl((current) => {
+        if (current) URL.revokeObjectURL(current);
+        return null;
+      });
+      setCompletionNote("");
+      setCompletionStep("capture");
+      return;
     }
 
-    setCommentDraft("");
+    if (completionStep === "capture") {
+      setCompletionStep("idle");
+      return;
+    }
+
+    if (selectedIssue.status === "resolved" || selectedIssue.status === "closed") {
+      const { error } = await supabase.from("reports").update({ status: "in_progress" }).eq("id", selectedIssue.id);
+      if (error) return;
+      setReports((current) => current.map((r) => (r.id === selectedIssue.id ? { ...r, status: "in_progress" } : r)));
+      return;
+    }
+
+    if (selectedIssue.status === "in_progress") {
+      let { error } = await supabase
+        .from("reports")
+        .update({ status: "open", started_at: null })
+        .eq("id", selectedIssue.id);
+      if (error) {
+        const fallback = await supabase.from("reports").update({ status: "open" }).eq("id", selectedIssue.id);
+        error = fallback.error;
+      }
+      if (error) return;
+      setReports((current) =>
+        current.map((r) => (r.id === selectedIssue.id ? { ...r, status: "open", started_at: null } : r))
+      );
+    }
   };
+
+  const canUndo = selectedIssue
+    ? selectedIssue.status !== "open" || completionStep !== "idle"
+    : false;
 
   const selectedIssueResolution = selectedIssue ? resolutions[selectedIssue.id] : null;
-  const isSelectedIssueDone = selectedIssue
-    ? ["resolved", "closed"].includes(selectedIssue.status) || !!completedTasks[selectedIssue.id]
-    : false;
+  const isSelectedIssueDone = selectedIssue ? ["resolved", "closed"].includes(selectedIssue.status) : false;
   const selectedIssueComments = selectedIssueResolution?.resolution_note
     ? [
         {
@@ -436,6 +612,44 @@ export default function Dashboard({ name = "trackserv-dashboard-root" }) {
 
   return (
     <Sidebar activePage="dashboard" selectedCategory={selectedCategory} onCategoryChange={setSelectedCategory}>
+      <style>{`
+        .dashboard-content-grid {
+          display: grid;
+          gap: 20px;
+          align-items: start;
+        }
+        .dashboard-map-card {
+          height: 460px;
+        }
+
+        /* Mobile View */
+        @media (max-width: 767px) {
+          .dashboard-content-grid {
+            grid-template-columns: 1fr;
+          }
+          .dashboard-map-card {
+            height: 350px;
+          }
+          .dashboard-page-shell {
+            padding: 12px;
+          }
+        }
+        
+        /* Tablet View */
+        @media (min-width: 768px) and (max-width: 1023px) {
+          .dashboard-content-grid {
+            grid-template-columns: minmax(0, 1fr) 320px;
+          }
+        }
+        
+        /* Desktop View */
+        @media (min-width: 1024px) {
+          .dashboard-content-grid {
+            grid-template-columns: minmax(0, 1fr) minmax(0, 420px);
+          }
+        }
+      `}</style>
+      
       <div
         name="dashboard-page-wrapper"
         className="home-page dashboard-page"
@@ -446,7 +660,20 @@ export default function Dashboard({ name = "trackserv-dashboard-root" }) {
           color: COLORS.ink900,
         }}
       >
-        <div name="dashboard-page-shell" style={{ maxWidth: 1300, margin: "0 10", display: "flex", flexDirection: "column", gap: 20, paddingLeft: 20, marginRight: 20, paddingBottom: 20, paddingTop: 20 }}>
+        <div
+          name="dashboard-page-shell"
+          className="dashboard-page-shell"
+          style={{
+            maxWidth: 1300,
+            margin: "0 auto",
+            width: "100%",
+            boxSizing: "border-box",
+            display: "flex",
+            flexDirection: "column",
+            gap: 20,
+            padding: 20,
+          }}
+        >
           <div
             name="dashboard-page-header"
             className="dashboard-page-header"
@@ -475,31 +702,23 @@ export default function Dashboard({ name = "trackserv-dashboard-root" }) {
             </button>
           </div>
 
-          <div name="dashboard-content-grid" className="dashboard-content-grid" style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 20, alignItems: "start" }}>
-            <div name="dashboard-left-column" style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          <div
+            name="dashboard-content-grid"
+            className="dashboard-content-grid"
+          >
+            <div name="dashboard-left-column" style={{ display: "flex", flexDirection: "column", gap: 20, minWidth: 0 }}>
               
-              {/* Map Card */}
               <div
                 name="map-card"
                 className="dashboard-card dashboard-map-card"
-                style={{ backgroundColor: COLORS.surface, borderRadius: 20, border: `1px solid ${COLORS.ink200}`, boxShadow: cardShadow, overflow: "hidden", position: "relative", height: "460px" }}
+                style={{ backgroundColor: COLORS.surface, borderRadius: 20, zIndex: 1, border: `1px solid ${COLORS.ink200}`, boxShadow: cardShadow, overflow: "hidden", position: "relative" }}
               >
                 <div
                   name="map-legend-box"
                   className="dashboard-map-legend"
                   style={{ position: "absolute", top: 14, left: 14, zIndex: 500, backgroundColor: COLORS.surface, borderRadius: 14, border: `1px solid ${COLORS.ink200}`, padding: "12px 16px", boxShadow: cardShadow, minWidth: 150 }}
                 >
-                  <div name="legend-title" style={{ fontWeight: 700, fontSize: 13, marginBottom: 8, color: COLORS.ink900 }}>
-                    Status Types
-                  </div>
-                  {Object.entries(markerColors).map(([status, color]) => (
-                    <div key={status} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                      <div style={{ width: 14, height: 14, borderRadius: "50%", backgroundColor: color }} />
-                      <span style={{ fontSize: 12, color: COLORS.ink700, textTransform: "capitalize" }}>{status.replace("-", " ")}</span>
-                    </div>
-                  ))}
                   
-                  <div name="legend-divider" style={{ borderTop: `1px solid ${COLORS.ink200}`, margin: "6px 0" }} />
                   
                   <button
                     onClick={handleMapFilterClick}
@@ -516,6 +735,42 @@ export default function Dashboard({ name = "trackserv-dashboard-root" }) {
                     }}
                   >
                     Filter: {mapFilterLabels[mapFilter]}
+                  </button>
+
+                  {routeInfo && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: COLORS.ink700, marginTop: 8 }}>
+                      <Navigation size={12} color={COLORS.blue500} />
+                      {routeInfo.distanceKm} km {"\u2022"} {routeInfo.durationMin} min drive
+                    </div>
+                  )}
+
+                  <button
+                    onClick={() => {
+                      if (!myLocation || !selectedIssue?.latitude || !selectedIssue?.longitude) return;
+                      const url = `https://www.google.com/maps/dir/?api=1&origin=${myLocation.lat},${myLocation.lng}&destination=${selectedIssue.latitude},${selectedIssue.longitude}&travelmode=driving`;
+                      window.open(url, "_blank", "noopener,noreferrer");
+                    }}
+                    disabled={!myLocation || !selectedIssue?.latitude}
+                    title={!myLocation ? "Waiting for your location…" : "Open turn-by-turn voice directions"}
+                    style={{
+                      width: "100%",
+                      marginTop: 6,
+                      padding: "6px",
+                      fontSize: 11,
+                      fontWeight: 600,
+                      cursor: myLocation && selectedIssue?.latitude ? "pointer" : "not-allowed",
+                      border: "none",
+                      borderRadius: 6,
+                      background: myLocation && selectedIssue?.latitude ? COLORS.blue500 : COLORS.ink200,
+                      color: myLocation && selectedIssue?.latitude ? "#FFFFFF" : COLORS.ink500,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 6,
+                    }}
+                  >
+                    <Navigation size={12} />
+                    Open in Maps App
                   </button>
                 </div>
 
@@ -561,6 +816,25 @@ export default function Dashboard({ name = "trackserv-dashboard-root" }) {
                     </React.Fragment>
                   )}
 
+                  {routeCoordinates.length > 0 ? (
+                    <Polyline
+                      positions={routeCoordinates}
+                      pathOptions={{ color: COLORS.blue500, weight: 5, opacity: 0.85 }}
+                    />
+                  ) : (
+                    myLocation &&
+                    selectedIssue?.latitude != null &&
+                    selectedIssue?.longitude != null && (
+                      <Polyline
+                        positions={[
+                          [myLocation.lat, myLocation.lng],
+                          [Number(selectedIssue.latitude), Number(selectedIssue.longitude)],
+                        ]}
+                        pathOptions={{ color: COLORS.blue500, weight: 3, dashArray: "8 6" }}
+                      />
+                    )
+                  )}
+
                   {filteredMapMarkers.map((marker) => (
                     <Marker
                       key={marker.id}
@@ -578,7 +852,6 @@ export default function Dashboard({ name = "trackserv-dashboard-root" }) {
                 </MapContainer>
               </div>
 
-              {/* Assigned issues */}
               <div name="assigned-issues-card" style={{ backgroundColor: COLORS.surface, borderRadius: 20, border: `1px solid ${COLORS.ink200}`, boxShadow: cardShadow, padding: 20 }}>
                 <div name="assigned-issues-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
                   <div name="assigned-issues-title" style={{ fontWeight: 700, fontSize: 16, color: COLORS.ink900 }}>
@@ -601,7 +874,7 @@ export default function Dashboard({ name = "trackserv-dashboard-root" }) {
                   </div>
                 )}
 
-                <div name="assigned-issues-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+                <div name="assigned-issues-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 12 }}>
                   {reports.map((issue) => {
                     const visual = getCategoryVisual(issue.categories?.category_name);
                     const Icon = visual.icon;
@@ -637,12 +910,12 @@ export default function Dashboard({ name = "trackserv-dashboard-root" }) {
                           </div>
                         </div>
 
-                        <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: COLORS.ink700 }}>
-                          <MapPin size={12} color={COLORS.ink500} />
-                          {issue.location}
+                        <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: COLORS.ink700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          <MapPin size={12} color={COLORS.ink500} style={{ flexShrink: 0 }} />
+                          <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{issue.location}</span>
                         </div>
                         <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: COLORS.ink500 }}>
-                          <Calendar size={11} color={COLORS.ink500} />
+                          <Calendar size={11} color={COLORS.ink500} style={{ flexShrink: 0 }} />
                           Reported: {issue.created_at ? dateFormatter.format(new Date(issue.created_at)) : "\u2013"}
                         </div>
 
@@ -672,21 +945,44 @@ export default function Dashboard({ name = "trackserv-dashboard-root" }) {
                         >
                           {actionLabel}
                         </button>
+
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setViewDetailsIssue(issue);
+                          }}
+                          style={{
+                            backgroundColor: COLORS.surface,
+                            color: COLORS.ink700,
+                            border: `1px solid ${COLORS.ink200}`,
+                            borderRadius: 10,
+                            padding: 9,
+                            fontSize: 12,
+                            fontWeight: 600,
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: 6,
+                          }}
+                        >
+                          <FileText size={12} />
+                          View Report Details
+                        </button>
                       </div>
                     );
                   })}
                 </div>
               </div>
 
-              {/* How it works */}
               <div name="how-it-works-card" style={{ backgroundColor: COLORS.surface, borderRadius: 20, border: `1px solid ${COLORS.ink200}`, boxShadow: cardShadow, padding: 20 }}>
                 <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 16, color: COLORS.ink900 }}>
                   How it works
                 </div>
-                <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                <div style={{ display: "flex", alignItems: "flex-start", gap: 10, flexWrap: "wrap" }}>
                   {HOW_IT_WORKS.map((step, idx) => (
                     <React.Fragment key={step.step}>
-                      <div style={{ display: "flex", gap: 10, flex: 1 }}>
+                      <div style={{ display: "flex", gap: 10, flex: 1, minWidth: 160 }}>
                         <div
                           style={{ width: 40, height: 40, borderRadius: "50%", backgroundColor: step.bg, color: step.fg, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, flexShrink: 0 }}
                         >
@@ -708,9 +1004,20 @@ export default function Dashboard({ name = "trackserv-dashboard-root" }) {
               </div>
             </div>
 
-            <div name="dashboard-right-column" style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-              {/* Issue details */}
-              <div name="issue-details-card" style={{ backgroundColor: COLORS.surface, borderRadius: 20, border: `1px solid ${COLORS.ink200}`, boxShadow: cardShadow, padding: 20 }}>
+            <div name="dashboard-right-column" style={{ display: "flex", flexDirection: "column", gap: 20, minWidth: 0 }}>
+              <div
+                name="issue-details-card"
+                style={{
+                  backgroundColor: COLORS.surface,
+                  borderRadius: 20,
+                  border: `1px solid ${COLORS.ink200}`,
+                  boxShadow: cardShadow,
+                  padding: 20,
+                  boxSizing: "border-box",
+                  width: "100%",
+                  overflow: "hidden",
+                }}
+              >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
                   <div style={{ fontWeight: 700, fontSize: 16, color: COLORS.ink900 }}>Issue Details</div>
                   <span style={{ cursor: "pointer", color: COLORS.ink500 }}>{"\u2715"}</span>
@@ -722,261 +1029,354 @@ export default function Dashboard({ name = "trackserv-dashboard-root" }) {
                   </div>
                 ) : (
                   <React.Fragment>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
-                  <span style={{ backgroundColor: COLORS.ink900, color: "#FFFFFF", fontSize: 12, fontWeight: 700, padding: "3px 8px", borderRadius: 8 }}>
-                    {shortId(selectedIssue.id)}
-                  </span>
-                  <span style={{ fontWeight: 700, fontSize: 14, color: COLORS.ink900 }}>{selectedIssue.categories?.category_name || "General"}</span>
-                  <span
-                    style={{ backgroundColor: statusColors(statusToDisplay(selectedIssue.status)).bg, color: statusColors(statusToDisplay(selectedIssue.status)).fg, fontSize: 11, fontWeight: 600, padding: "3px 8px", borderRadius: 999 }}
-                  >
-                    {statusToDisplay(selectedIssue.status)}
-                  </span>
-                </div>
-
-                <div style={{ display: "flex", gap: 14 }}>
-                  <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: COLORS.ink700 }}>
-                      <MapPin size={14} color={COLORS.ink500} />
-                      {selectedIssue.location}
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+                      <span style={{ backgroundColor: COLORS.ink900, color: "#FFFFFF", fontSize: 12, fontWeight: 700, padding: "3px 8px", borderRadius: 8 }}>
+                        {shortId(selectedIssue.id)}
+                      </span>
+                      <span style={{ fontWeight: 700, fontSize: 14, color: COLORS.ink900 }}>{selectedIssue.categories?.category_name || "General"}</span>
+                      <span
+                        style={{ backgroundColor: statusColors(statusToDisplay(selectedIssue.status)).bg, color: statusColors(statusToDisplay(selectedIssue.status)).fg, fontSize: 11, fontWeight: 600, padding: "3px 8px", borderRadius: 999 }}
+                      >
+                        {statusToDisplay(selectedIssue.status)}
+                      </span>
                     </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: COLORS.ink700 }}>
-                      <Calendar size={14} color={COLORS.ink500} />
-                      Reported: {selectedIssue.created_at ? dateFormatter.format(new Date(selectedIssue.created_at)) : "\u2013"}
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: COLORS.ink700 }}>
-                      <TriangleAlert size={14} color={priorityColor(selectedIssue.severity)} />
-                      Priority: <span style={{ color: priorityColor(selectedIssue.severity), fontWeight: 600 }}>{selectedIssue.severity}</span>
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: COLORS.ink700 }}>
-                      <User size={14} color={COLORS.ink500} />
-                      Assigned to: {currentUser?.full_name || currentUser?.username || "Unassigned"}
-                    </div>
-                    <div style={{ display: "flex", alignItems: "flex-start", gap: 6, fontSize: 13, color: COLORS.ink700 }}>
-                      <FileText size={14} color={COLORS.ink500} style={{ marginTop: 2, flexShrink: 0 }} />
-                      Description: {selectedIssue.description || selectedIssue.title || "No description provided."}
-                    </div>
-                  </div>
 
-                  {(selectedIssue.report_images?.[0]?.image_url || selectedIssue.proof_image_url) && (
-                    <img
-                      alt={`${selectedIssue.categories?.category_name || "Issue"} at ${selectedIssue.location}`}
-                      src={selectedIssue.report_images?.[0]?.image_url || selectedIssue.proof_image_url}
-                      style={{ width: 150, height: 110, borderRadius: 14, objectFit: "cover", flexShrink: 0 }}
-                    />
-                  )}
-                </div>
+                    <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+                      <div style={{ flex: 1, minWidth: 180, display: "flex", flexDirection: "column", gap: 8, overflowWrap: "break-word" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: COLORS.ink700 }}>
+                          <MapPin size={14} color={COLORS.ink500} style={{ flexShrink: 0 }} />
+                          <span style={{ overflowWrap: "anywhere" }}>{selectedIssue.location}</span>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: COLORS.ink700 }}>
+                          <Calendar size={14} color={COLORS.ink500} style={{ flexShrink: 0 }} />
+                          Reported: {selectedIssue.created_at ? dateFormatter.format(new Date(selectedIssue.created_at)) : "\u2013"}
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: COLORS.ink700 }}>
+                          <TriangleAlert size={14} color={priorityColor(selectedIssue.severity)} style={{ flexShrink: 0 }} />
+                          Priority: <span style={{ color: priorityColor(selectedIssue.severity), fontWeight: 600 }}>{selectedIssue.severity}</span>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: COLORS.ink700 }}>
+                          <User size={14} color={COLORS.ink500} style={{ flexShrink: 0 }} />
+                          Assigned to: {currentUser?.full_name || currentUser?.username || "Unassigned"}
+                        </div>
+                        <div style={{ display: "flex", alignItems: "flex-start", gap: 6, fontSize: 13, color: COLORS.ink700 }}>
+                          <FileText size={14} color={COLORS.ink500} style={{ marginTop: 2, flexShrink: 0 }} />
+                          <span style={{ overflowWrap: "anywhere", wordBreak: "break-word" }}>
+                            Description: {selectedIssue.description || selectedIssue.title || "No description provided."}
+                          </span>
+                        </div>
+                      </div>
 
-                <div style={{ borderTop: `1px solid ${COLORS.ink200}`, margin: "16px 0" }} />
+                      {(selectedIssue.report_images?.[0]?.image_url || selectedIssue.proof_image_url) && (
+                        <img
+                          alt={`${selectedIssue.categories?.category_name || "Issue"} at ${selectedIssue.location}`}
+                          src={selectedIssue.report_images?.[0]?.image_url || selectedIssue.proof_image_url}
+                          style={{ width: 140, height: 110, borderRadius: 14, objectFit: "cover", flexShrink: 0 }}
+                        />
+                      )}
+                    </div>
 
-                <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 14, color: COLORS.ink900 }}>Attendance &amp; Work</div>
+                    <div style={{ borderTop: `1px solid ${COLORS.ink200}`, margin: "16px 0" }} />
 
-                <div style={{ display: "flex", alignItems: "center", marginBottom: 16 }}>
-                  {[
-                    { n: 1, label: "Start Attendance", state: "done" },
-                    { n: 2, label: "In Progress", state: isSelectedIssueDone ? "done" : "current" },
-                    { n: 3, label: "Upload Photo", state: isSelectedIssueDone ? "done" : "todo" },
-                    { n: 4, label: "Finish Issue", state: isSelectedIssueDone ? "current" : "todo" },
-                  ].map((s, idx, arr) => (
-                    <React.Fragment key={s.n}>
-                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-                        <div
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+                      <div style={{ fontWeight: 700, fontSize: 14, color: COLORS.ink900 }}>Attendance &amp; Work</div>
+                      {canUndo && (
+                        <button
+                          onClick={handleUndoStep}
                           style={{
-                            width: 26,
-                            height: 26,
-                            borderRadius: "50%",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 4,
+                            background: "none",
+                            border: `1px solid ${COLORS.ink200}`,
+                            borderRadius: 8,
+                            padding: "4px 10px",
+                            fontSize: 11,
+                            fontWeight: 600,
+                            color: COLORS.ink700,
+                            cursor: "pointer",
+                          }}
+                        >
+                          <Undo2 size={12} />
+                          Undo
+                        </button>
+                      )}
+                    </div>
+
+                    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 16, gap: 4 }}>
+                      {[
+                        { n: 1, label: "Start Attendance", state: selectedIssue.status !== "open" ? "done" : "current" },
+                        { n: 2, label: "In Progress", state: isSelectedIssueDone ? "done" : selectedIssue.status === "in_progress" ? "current" : "todo" },
+                        { n: 3, label: "Upload Photo", state: selectedIssueResolution?.resolution_image_url ? "done" : completionStep === "review" ? "current" : "todo" },
+                        { n: 4, label: "Finish Issue", state: isSelectedIssueDone ? "done" : completionPreviewUrl ? "current" : "todo" },
+                      ].map((s, idx, arr) => (
+                        <React.Fragment key={s.n}>
+                          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, flex: 1 }}>
+                            <div
+                              style={{
+                                width: 26,
+                                height: 26,
+                                borderRadius: "50%",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                fontSize: 12,
+                                fontWeight: 700,
+                                flexShrink: 0,
+                                color: s.state === "todo" ? COLORS.ink500 : "#FFFFFF",
+                                backgroundColor: s.state === "done" ? COLORS.green600 : s.state === "current" ? COLORS.blue500 : COLORS.ink200,
+                              }}
+                            >
+                              {s.n}
+                            </div>
+                            <div style={{ fontSize: 10, color: COLORS.ink500, textAlign: "center", lineHeight: 1.2 }}>
+                              {s.label}
+                            </div>
+                          </div>
+                          {idx < arr.length - 1 && (
+                            <div
+                              style={{ flex: 1, minWidth: 8, height: 2, backgroundColor: s.state === "done" ? COLORS.green600 : COLORS.ink200, marginTop: 12 }}
+                            />
+                          )}
+                        </React.Fragment>
+                      ))}
+                    </div>
+
+                    {selectedIssue.status === "open" && (
+                      <div style={{ backgroundColor: COLORS.green100, border: "1px solid #BBF7D0", borderRadius: 14, padding: 14 }}>
+                        <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4, color: COLORS.ink900 }}>Start Attendance</div>
+                        <div style={{ fontSize: 12, color: COLORS.ink700, marginBottom: 12 }}>
+                          Click the button below when you arrive on site.
+                        </div>
+                        <button
+                          onClick={startAttendance}
+                          style={{ backgroundColor: COLORS.green600, color: "#FFFFFF", border: "none", borderRadius: 10, padding: "10px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer", width: "100%" }}
+                        >
+                          START ATTENDANCE
+                        </button>
+                      </div>
+                    )}
+
+                    {selectedIssue.status === "in_progress" && completionStep === "idle" && (
+                      <button
+                        onClick={() => setCompletionStep("capture")}
+                        style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", backgroundColor: COLORS.blue500, color: "#FFFFFF", border: "none", borderRadius: 10, padding: "10px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
+                      >
+                        <CheckCircle2 size={16} />
+                        Assignment Completed
+                      </button>
+                    )}
+
+                    {selectedIssue.status === "in_progress" && completionStep === "capture" && (
+                      <div style={{ backgroundColor: COLORS.blue100, border: "1px solid #BFDBFE", borderRadius: 14, padding: 14 }}>
+                        <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4, color: COLORS.ink900 }}>Upload a photo</div>
+                        <div style={{ fontSize: 12, color: COLORS.ink700, marginBottom: 12 }}>
+                          Take a photo on site, or choose one from your gallery.
+                        </div>
+                        <div style={{ display: "flex", gap: 10 }}>
+                          <label
+                            style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: COLORS.blue500, color: "#FFFFFF", border: "none", borderRadius: 10, padding: "10px 12px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+                          >
+                            <Camera size={14} />
+                            Take Photo
+                            <input type="file" accept="image/*" capture="environment" onChange={handleCompletionFileChange} style={{ display: "none" }} />
+                          </label>
+                          <label
+                            style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: COLORS.surface, color: COLORS.blue500, border: `1px solid ${COLORS.blue500}`, borderRadius: 10, padding: "10px 12px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+                          >
+                            <ImageIcon size={14} />
+                            Gallery
+                            <input type="file" accept="image/*" onChange={handleCompletionFileChange} style={{ display: "none" }} />
+                          </label>
+                        </div>
+                        <button
+                          onClick={() => setCompletionStep("idle")}
+                          style={{ marginTop: 10, width: "100%", background: "none", border: "none", color: COLORS.ink500, fontSize: 12, cursor: "pointer" }}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    )}
+
+                    {selectedIssue.status === "in_progress" && completionStep === "review" && (
+                      <div style={{ backgroundColor: COLORS.surface, border: `1px solid ${COLORS.ink200}`, borderRadius: 14, padding: 14 }}>
+                        <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 10, color: COLORS.ink900 }}>Photo preview</div>
+                        {completionPreviewUrl && (
+                          <img
+                            src={completionPreviewUrl}
+                            alt="Completion preview"
+                            style={{ width: "100%", maxHeight: 200, objectFit: "cover", borderRadius: 12, marginBottom: 10 }}
+                          />
+                        )}
+                        <button
+                          onClick={() => {
+                            setCompletionFile(null);
+                            setCompletionPreviewUrl((current) => {
+                              if (current) URL.revokeObjectURL(current);
+                              return null;
+                            });
+                            setCompletionStep("capture");
+                          }}
+                          style={{ marginBottom: 14, background: "none", border: "none", color: COLORS.blue500, fontSize: 12, fontWeight: 600, cursor: "pointer", padding: 0 }}
+                        >
+                          Choose a different photo
+                        </button>
+
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                          <MessageSquare size={16} color={COLORS.green700} />
+                          <span style={{ fontSize: 13, fontWeight: 700, color: COLORS.ink900 }}>Add a note</span>
+                        </div>
+                        <textarea
+                          value={completionNote}
+                          onChange={(event) => setCompletionNote(event.target.value)}
+                          placeholder="How did the job go? Note any follow-up needed..."
+                          rows={3}
+                          style={{ width: "100%", border: `1px solid ${COLORS.ink200}`, borderRadius: 12, padding: "10px 12px", fontSize: 13, color: COLORS.ink900, resize: "vertical", fontFamily: "inherit", marginBottom: 10, boxSizing: "border-box" }}
+                        />
+
+                        {completionError && (
+                          <div style={{ color: COLORS.red500, fontSize: 12, marginBottom: 10 }}>{completionError}</div>
+                        )}
+
+                        <button
+                          onClick={handleSubmitCompletion}
+                          disabled={submittingCompletion}
+                          style={{
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
-                            fontSize: 12,
-                            fontWeight: 700,
-                            color: s.state === "todo" ? COLORS.ink500 : "#FFFFFF",
-                            backgroundColor: s.state === "done" ? COLORS.green600 : s.state === "current" ? COLORS.blue500 : COLORS.ink200,
-                          }}
-                        >
-                          {s.n}
-                        </div>
-                        <div style={{ fontSize: 10, color: COLORS.ink500, whiteSpace: "nowrap" }}>{s.label}</div>
-                      </div>
-                      {idx < arr.length - 1 && (
-                        <div
-                          style={{ flex: 1, height: 2, backgroundColor: s.state === "done" ? COLORS.green600 : COLORS.ink200, marginBottom: 18 }}
-                        />
-                      )}
-                    </React.Fragment>
-                  ))}
-                </div>
-
-                {!isSelectedIssueDone && (
-                  <div style={{ backgroundColor: COLORS.green100, border: "1px solid #BBF7D0", borderRadius: 14, padding: 14 }}>
-                    <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4, color: COLORS.ink900 }}>Start Attendance</div>
-                    <div style={{ fontSize: 12, color: COLORS.ink700, marginBottom: 12 }}>
-                      Click the button below when you arrive on site.
-                    </div>
-                    <button
-                      onClick={async () => {
-                        if (selectedIssue.status !== "in_progress") {
-                          const { error } = await supabase
-                            .from("reports")
-                            .update({ status: "in_progress" })
-                            .eq("id", selectedIssue.id);
-                          if (!error) {
-                            setReports((current) =>
-                              current.map((r) => (r.id === selectedIssue.id ? { ...r, status: "in_progress" } : r))
-                            );
-                          } else {
-                            console.error("Error starting attendance:", error.message);
-                          }
-                        }
-                      }}
-                      style={{ backgroundColor: COLORS.green600, color: "#FFFFFF", border: "none", borderRadius: 10, padding: "10px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer", width: "100%" }}
-                    >
-                      START ATTENDANCE
-                    </button>
-                  </div>
-                )}
-
-                <div style={{ borderTop: `1px solid ${COLORS.ink200}`, margin: "16px 0" }} />
-
-                <div>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-                    <div style={{ fontWeight: 700, fontSize: 14, color: COLORS.ink900 }}>Finish Task</div>
-                    {isSelectedIssueDone && (
-                      <span
-                        style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 600, color: COLORS.green700, backgroundColor: COLORS.green100, padding: "3px 8px", borderRadius: 999 }}
-                      >
-                        <CheckCircle2 size={12} />
-                        Completed
-                      </span>
-                    )}
-                  </div>
-
-                  {!isSelectedIssueDone ? (
-                    <button
-                      onClick={() => handleFinishTask(selectedIssue.id)}
-                      style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", backgroundColor: COLORS.blue500, color: "#FFFFFF", border: "none", borderRadius: 10, padding: "10px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
-                    >
-                      <CheckCircle2 size={16} />
-                      Mark Issue as Finished
-                    </button>
-                  ) : (
-                    <div style={{ backgroundColor: COLORS.surface, border: `1px solid ${COLORS.ink200}`, borderRadius: 14, padding: 14 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                        <MessageSquare size={16} color={COLORS.green700} />
-                        <span style={{ fontSize: 13, fontWeight: 700, color: COLORS.ink900 }}>Leave a comment</span>
-                      </div>
-
-                      <textarea
-                        value={commentDraft}
-                        onChange={(event) => setCommentDraft(event.target.value)}
-                        placeholder="How did the job go? Note any follow-up needed..."
-                        rows={3}
-                        style={{ width: "100%", border: `1px solid ${COLORS.ink200}`, borderRadius: 12, padding: "10px 12px", fontSize: 13, color: COLORS.ink900, resize: "vertical", fontFamily: "inherit", marginBottom: 10, boxSizing: "border-box" }}
-                      />
-
-                      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: selectedIssueComments.length ? 14 : 0 }}>
-                        <button
-                          onClick={() => handleSubmitComment(selectedIssue.id)}
-                          disabled={!commentDraft.trim()}
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
                             gap: 8,
-                            backgroundColor: commentDraft.trim() ? COLORS.green600 : COLORS.ink200,
-                            color: commentDraft.trim() ? "#FFFFFF" : COLORS.ink500,
+                            width: "100%",
+                            backgroundColor: submittingCompletion ? COLORS.ink200 : COLORS.green600,
+                            color: submittingCompletion ? COLORS.ink500 : "#FFFFFF",
                             border: "none",
                             borderRadius: 10,
-                            padding: "9px 16px",
-                            fontSize: 12,
+                            padding: "10px 16px",
+                            fontSize: 13,
                             fontWeight: 700,
-                            cursor: commentDraft.trim() ? "pointer" : "not-allowed",
+                            cursor: submittingCompletion ? "not-allowed" : "pointer",
                           }}
                         >
                           <Send size={14} />
-                          Post Comment
+                          {submittingCompletion ? "Sending…" : "Send to Database"}
                         </button>
                       </div>
+                    )}
 
-                      {selectedIssueComments.length > 0 && (
-                        <div style={{ display: "flex", flexDirection: "column", gap: 12, borderTop: `1px solid ${COLORS.ink200}`, paddingTop: 12 }}>
-                          {selectedIssueComments.map((comment) => (
-                            <div key={comment.id} style={{ display: "flex", gap: 10 }}>
-                              <div
-                                style={{ width: 28, height: 28, borderRadius: "50%", backgroundColor: COLORS.green100, color: COLORS.green700, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
-                              >
-                                <User size={14} />
-                              </div>
-                              <div>
-                                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2, flexWrap: "wrap" }}>
-                                  <span style={{ fontSize: 12, fontWeight: 700, color: COLORS.ink900 }}>{comment.author}</span>
-                                  <span style={{ fontSize: 11, color: COLORS.ink500 }}>
-                                    {dateFormatter.format(comment.timestamp)}
-                                  </span>
-                                </div>
-                                <p style={{ margin: 0, fontSize: 12.5, color: COLORS.ink700, lineHeight: 1.5 }}>{comment.text}</p>
-                              </div>
-                            </div>
-                          ))}
+                    {isSelectedIssueDone && (
+                      <div style={{ backgroundColor: COLORS.green100, border: "1px solid #BBF7D0", borderRadius: 14, padding: 14 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
+                          <CheckCircle2 size={16} color={COLORS.green700} />
+                          <span style={{ fontSize: 13, fontWeight: 700, color: COLORS.ink900 }}>
+                            Completed{selectedIssueResolution?.attended_at ? ` \u2013 ${dateFormatter.format(new Date(selectedIssueResolution.attended_at))}` : ""}
+                          </span>
                         </div>
-                      )}
-                    </div>
-                  )}
-                </div>
+                        {selectedIssueResolution?.resolution_image_url && (
+                          <img
+                            src={selectedIssueResolution.resolution_image_url}
+                            alt="Resolution"
+                            style={{ width: "100%", maxHeight: 180, objectFit: "cover", borderRadius: 12, marginBottom: 10 }}
+                          />
+                        )}
+                        {selectedIssueComments.length > 0 && (
+                          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                            {selectedIssueComments.map((comment) => (
+                              <div key={comment.id} style={{ display: "flex", gap: 10 }}>
+                                <div
+                                  style={{ width: 28, height: 28, borderRadius: "50%", backgroundColor: COLORS.surface, color: COLORS.green700, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
+                                >
+                                  <User size={14} />
+                                </div>
+                                <div>
+                                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2, flexWrap: "wrap" }}>
+                                    <span style={{ fontSize: 12, fontWeight: 700, color: COLORS.ink900 }}>{comment.author}</span>
+                                    <span style={{ fontSize: 11, color: COLORS.ink500 }}>
+                                      {dateFormatter.format(comment.timestamp)}
+                                    </span>
+                                  </div>
+                                  <p style={{ margin: 0, fontSize: 12.5, color: COLORS.ink700, lineHeight: 1.5 }}>{comment.text}</p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </React.Fragment>
                 )}
               </div>
 
-              {/* Work history */}
-              <div style={{ backgroundColor: COLORS.surface, borderRadius: 20, border: `1px solid ${COLORS.ink200}`, boxShadow: cardShadow, padding: 20 }}>
+              <div style={{ backgroundColor: COLORS.surface, borderRadius: 20, border: `1px solid ${COLORS.ink200}`, boxShadow: cardShadow, padding: 20, overflow: "hidden" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
                   <div style={{ fontWeight: 700, fontSize: 15, color: COLORS.ink900 }}>My Work History / Reports</div>
                   <span style={{ fontSize: 13, color: COLORS.green700, cursor: "pointer", fontWeight: 600 }}>View all</span>
                 </div>
 
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-                  <thead>
-                    <tr>
-                      {["Issue", "Type", "Location", "Check-in", "Check-out", "Status"].map((h) => (
-                        <th key={h} style={{ textAlign: "left", padding: "6px 4px", color: COLORS.ink500, fontWeight: 600, borderBottom: `1px solid ${COLORS.ink200}` }}>
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {workHistory.length === 0 && (
+                <div style={{ overflowX: "auto", width: "100%" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, minWidth: 420 }}>
+                    <thead>
                       <tr>
-                        <td colSpan={6} style={{ padding: "10px 4px", color: COLORS.ink500, fontSize: 12 }}>
-                          No work history yet.
-                        </td>
+                        {["Issue", "Type", "Location", "Check-in", "Check-out", "Status", ""].map((h) => (
+                          <th key={h} style={{ textAlign: "left", padding: "6px 4px", color: COLORS.ink500, fontWeight: 600, borderBottom: `1px solid ${COLORS.ink200}` }}>
+                            {h}
+                          </th>
+                        ))}
                       </tr>
-                    )}
-                    {workHistory.map((row) => {
-                      const sc = statusColors(row.status);
-                      return (
-                        <tr key={row.id}>
-                          <td style={{ padding: "8px 4px", borderBottom: `1px solid ${COLORS.ink100}`, fontWeight: 600, color: COLORS.ink900 }}>{shortId(row.id)}</td>
-                          <td style={{ padding: "8px 4px", borderBottom: `1px solid ${COLORS.ink100}` }}>
-                            <span style={{ backgroundColor: COLORS.ink100, color: COLORS.ink700, padding: "2px 8px", borderRadius: 999, fontSize: 11 }}>{row.type}</span>
-                          </td>
-                          <td style={{ padding: "8px 4px", borderBottom: `1px solid ${COLORS.ink100}`, color: COLORS.ink700 }}>{row.location}</td>
-                          <td style={{ padding: "8px 4px", borderBottom: `1px solid ${COLORS.ink100}`, color: COLORS.ink700 }}>{row.checkIn}</td>
-                          <td style={{ padding: "8px 4px", borderBottom: `1px solid ${COLORS.ink100}`, color: COLORS.ink700 }}>{row.checkOut}</td>
-                          <td style={{ padding: "8px 4px", borderBottom: `1px solid ${COLORS.ink100}` }}>
-                            <span style={{ backgroundColor: sc.bg, color: sc.fg, padding: "2px 8px", borderRadius: 999, fontSize: 11, fontWeight: 600 }}>{row.status}</span>
+                    </thead>
+                    <tbody>
+                      {workHistory.length === 0 && (
+                        <tr>
+                          <td colSpan={7} style={{ padding: "10px 4px", color: COLORS.ink500, fontSize: 12 }}>
+                            No work history yet.
                           </td>
                         </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-
-                <button
-                  style={{ marginTop: 12, width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: COLORS.surface, border: `1px solid ${COLORS.ink200}`, borderRadius: 10, padding: 9, fontSize: 12, fontWeight: 600, color: COLORS.green700, cursor: "pointer" }}
-                >
-                  <FileText size={14} />
-                  View Detailed Report
-                </button>
+                      )}
+                      {workHistory.map((row) => {
+                        const sc = statusColors(row.status);
+                        return (
+                          <tr key={row.id}>
+                            <td style={{ padding: "8px 4px", borderBottom: `1px solid ${COLORS.ink100}`, fontWeight: 600, color: COLORS.ink900 }}>{shortId(row.id)}</td>
+                            <td style={{ padding: "8px 4px", borderBottom: `1px solid ${COLORS.ink100}` }}>
+                              <span style={{ backgroundColor: COLORS.ink100, color: COLORS.ink700, padding: "2px 8px", borderRadius: 999, fontSize: 11 }}>{row.type}</span>
+                            </td>
+                            <td style={{ padding: "8px 4px", borderBottom: `1px solid ${COLORS.ink100}`, color: COLORS.ink700 }}>{row.location}</td>
+                            <td style={{ padding: "8px 4px", borderBottom: `1px solid ${COLORS.ink100}`, color: COLORS.ink700 }}>{row.checkIn}</td>
+                            <td style={{ padding: "8px 4px", borderBottom: `1px solid ${COLORS.ink100}`, color: COLORS.ink700 }}>{row.checkOut}</td>
+                            <td style={{ padding: "8px 4px", borderBottom: `1px solid ${COLORS.ink100}` }}>
+                              <span style={{ backgroundColor: sc.bg, color: sc.fg, padding: "2px 8px", borderRadius: 999, fontSize: 11, fontWeight: 600 }}>{row.status}</span>
+                            </td>
+                            <td style={{ padding: "8px 4px", borderBottom: `1px solid ${COLORS.ink100}` }}>
+                              <button
+                                onClick={() => {
+                                  const report = reports.find((r) => r.id === row.id);
+                                  if (report) setViewDetailsIssue(report);
+                                }}
+                                title="View Detailed Report"
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 4,
+                                  background: "none",
+                                  border: `1px solid ${COLORS.ink200}`,
+                                  borderRadius: 8,
+                                  padding: "4px 8px",
+                                  fontSize: 11,
+                                  fontWeight: 600,
+                                  color: COLORS.green700,
+                                  cursor: "pointer",
+                                  whiteSpace: "nowrap",
+                                }}
+                              >
+                                <FileText size={12} />
+                                View
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           </div>
@@ -984,6 +1384,132 @@ export default function Dashboard({ name = "trackserv-dashboard-root" }) {
 
         <Footer />
       </div>
+
+      {viewDetailsIssue && (
+        <div
+          onClick={() => setViewDetailsIssue(null)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            backgroundColor: "rgba(17, 24, 39, 0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 2000,
+            padding: 20,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              backgroundColor: COLORS.surface,
+              borderRadius: 20,
+              padding: 24,
+              maxWidth: 480,
+              width: "100%",
+              maxHeight: "85vh",
+              overflowY: "auto",
+              boxShadow: "0 20px 50px rgba(0,0,0,0.25)",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 18, color: COLORS.ink900 }}>
+                  {shortId(viewDetailsIssue.id)} {"\u2013"} {viewDetailsIssue.categories?.category_name || "General"}
+                </div>
+                <span
+                  style={{
+                    display: "inline-block",
+                    marginTop: 6,
+                    backgroundColor: statusColors(statusToDisplay(viewDetailsIssue.status)).bg,
+                    color: statusColors(statusToDisplay(viewDetailsIssue.status)).fg,
+                    fontSize: 11,
+                    fontWeight: 600,
+                    padding: "3px 8px",
+                    borderRadius: 999,
+                  }}
+                >
+                  {statusToDisplay(viewDetailsIssue.status)}
+                </span>
+              </div>
+              <button
+                onClick={() => setViewDetailsIssue(null)}
+                style={{ background: "none", border: "none", cursor: "pointer", color: COLORS.ink500, padding: 4 }}
+                aria-label="Close"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {(viewDetailsIssue.report_images?.[0]?.image_url || viewDetailsIssue.proof_image_url) && (
+              <img
+                src={viewDetailsIssue.report_images?.[0]?.image_url || viewDetailsIssue.proof_image_url}
+                alt="Report"
+                style={{ width: "100%", maxHeight: 200, objectFit: "cover", borderRadius: 12, marginBottom: 16 }}
+              />
+            )}
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, fontSize: 13, color: COLORS.ink700 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <MapPin size={14} color={COLORS.ink500} />
+                {viewDetailsIssue.location}
+                {viewDetailsIssue.latitude != null && viewDetailsIssue.longitude != null && (
+                  <span style={{ color: COLORS.ink500, fontSize: 11 }}>
+                    ({Number(viewDetailsIssue.latitude).toFixed(4)}, {Number(viewDetailsIssue.longitude).toFixed(4)})
+                  </span>
+                )}
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <Calendar size={14} color={COLORS.ink500} />
+                Reported: {viewDetailsIssue.created_at ? dateFormatter.format(new Date(viewDetailsIssue.created_at)) : "\u2013"}
+              </div>
+              {viewDetailsIssue.started_at && (
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <Calendar size={14} color={COLORS.ink500} />
+                  Started: {dateFormatter.format(new Date(viewDetailsIssue.started_at))}
+                </div>
+              )}
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <TriangleAlert size={14} color={priorityColor(viewDetailsIssue.severity)} />
+                Priority: <span style={{ color: priorityColor(viewDetailsIssue.severity), fontWeight: 600 }}>{viewDetailsIssue.severity}</span>
+              </div>
+              <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+                <FileText size={14} color={COLORS.ink500} style={{ marginTop: 2, flexShrink: 0 }} />
+                {viewDetailsIssue.description || viewDetailsIssue.title || "No description provided."}
+              </div>
+            </div>
+
+            {resolutions[viewDetailsIssue.id] && (
+              <React.Fragment>
+                <div style={{ borderTop: `1px solid ${COLORS.ink200}`, margin: "16px 0" }} />
+                <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8, color: COLORS.ink900 }}>Resolution</div>
+                {resolutions[viewDetailsIssue.id].resolution_image_url && (
+                  <img
+                    src={resolutions[viewDetailsIssue.id].resolution_image_url}
+                    alt="Resolution"
+                    style={{ width: "100%", maxHeight: 180, objectFit: "cover", borderRadius: 12, marginBottom: 10 }}
+                  />
+                )}
+                {resolutions[viewDetailsIssue.id].attendant_name && (
+                  <div style={{ fontSize: 12, color: COLORS.ink700, marginBottom: 4 }}>
+                    Attended by: {resolutions[viewDetailsIssue.id].attendant_name}
+                  </div>
+                )}
+                {resolutions[viewDetailsIssue.id].attended_at && (
+                  <div style={{ fontSize: 12, color: COLORS.ink700, marginBottom: 4 }}>
+                    Completed: {dateFormatter.format(new Date(resolutions[viewDetailsIssue.id].attended_at))}
+                  </div>
+                )}
+                {resolutions[viewDetailsIssue.id].resolution_note && (
+                  <p style={{ fontSize: 12.5, color: COLORS.ink700, lineHeight: 1.5 }}>
+                    {resolutions[viewDetailsIssue.id].resolution_note}
+                  </p>
+                )}
+              </React.Fragment>
+            )}
+          </div>
+        </div>
+      )}
     </Sidebar>
   );
 }

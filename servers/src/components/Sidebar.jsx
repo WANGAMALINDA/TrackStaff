@@ -19,7 +19,7 @@ import {
 import { supabase } from "./supabaseClient";
 
 const navItems = [
-  { key: "dashboard", label: "Dashboard", icon: Wrench, path: "/" },
+  { key: "dashboard", label: "Dashboard", icon: Wrench, path: "/dashboard" },
   { key: "profile", label: "My Profile", icon: User, path: "/profile" },
 ];
 
@@ -202,7 +202,7 @@ export default function Sidebar({ children, activePage = "home", onPageChange, s
 
         <button
           onClick={() => {
-            navigate("/");
+            navigate("/dashboard");
             onPageChange?.("home");
             closeMobileNav();
           }}

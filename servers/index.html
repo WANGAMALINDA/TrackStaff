@@ -9,5 +9,18 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
+    <script>
+      // Handle GitHub Pages redirect for SPA routing
+      (function() {
+        let redirect = sessionStorage.redirect;
+        if (redirect && redirect !== location.href) {
+          delete sessionStorage.redirect;
+          // Extract the path after the base and navigate to it
+          let path = redirect.substring(window.location.origin.length + '/TrackStaff'.length);
+          if (!path) path = '/';
+          window.history.replaceState(null, null, '/TrackStaff' + path);
+        }
+      })();
+    </script>
   </body>
 </html>

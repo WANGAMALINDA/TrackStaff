@@ -404,6 +404,11 @@ export default function Dashboard({ name = "trackserv-dashboard-root" }) {
     return [latSum / mapPoints.length, lngSum / mapPoints.length];
   }, [mapPoints]);
 
+  const activeAssignments = useMemo(
+    () => reports.filter((r) => !["resolved", "closed"].includes(r.status)),
+    [reports]
+  );
+
   const workHistory = useMemo(() => {
     return reports.map((r) => {
       const resolution = resolutions[r.id];
@@ -855,7 +860,7 @@ export default function Dashboard({ name = "trackserv-dashboard-root" }) {
               <div name="assigned-issues-card" style={{ backgroundColor: COLORS.surface, borderRadius: 20, border: `1px solid ${COLORS.ink200}`, boxShadow: cardShadow, padding: 20 }}>
                 <div name="assigned-issues-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
                   <div name="assigned-issues-title" style={{ fontWeight: 700, fontSize: 16, color: COLORS.ink900 }}>
-                    My Assigned Issues ({reports.length})
+                    My Assigned Issues ({activeAssignments.length})
                   </div>
                   <span name="assigned-issues-view-all" style={{ fontSize: 13, color: COLORS.green700, cursor: "pointer", fontWeight: 600 }}>
                     View all
@@ -868,14 +873,14 @@ export default function Dashboard({ name = "trackserv-dashboard-root" }) {
                 {loadError && (
                   <div style={{ fontSize: 13, color: COLORS.red500, padding: "8px 0" }}>{loadError}</div>
                 )}
-                {!loadingReports && !loadError && reports.length === 0 && (
+                {!loadingReports && !loadError && activeAssignments.length === 0 && (
                   <div style={{ fontSize: 13, color: COLORS.ink500, padding: "8px 0" }}>
                     You have no assigned issues right now.
                   </div>
                 )}
 
                 <div name="assigned-issues-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 12 }}>
-                  {reports.map((issue) => {
+                  {activeAssignments.map((issue) => {
                     const visual = getCategoryVisual(issue.categories?.category_name);
                     const Icon = visual.icon;
                     const displayStatus = statusToDisplay(issue.status);
@@ -1258,7 +1263,7 @@ export default function Dashboard({ name = "trackserv-dashboard-root" }) {
                           }}
                         >
                           <Send size={14} />
-                          {submittingCompletion ? "Sending…" : "Send to Database"}
+                          {submittingCompletion ? "Sending…" : "Submit Proof of Resolution"}
                         </button>
                       </div>
                     )}

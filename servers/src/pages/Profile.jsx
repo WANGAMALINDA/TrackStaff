@@ -34,6 +34,7 @@ import {
 // Dashboard.jsx wraps itself in — keeps Profile and Dashboard on one
 // consistent navigation pattern.
 import Sidebar from "../components/Sidebar";
+import Footer from "../components/footer"
 import { supabase } from "../components/supabaseClient";
 
 /* ---------- Design tokens (was :root CSS variables) ---------- */
@@ -377,6 +378,7 @@ export default function Profile() {
   const [userId, setUserId] = useState(null);
   const [profile, setProfile] = useState(defaultProfile);
   const [reports, setReports] = useState([]);
+  const [resolutions, setResolutions] = useState({});
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [activeTab, setActiveTab] = useState("overview");
@@ -482,12 +484,31 @@ export default function Profile() {
 
       const { data: reportRows, error: reportsError } = await supabase
         .from("reports")
-        .select("id, description, status, created_at, categories(category_name)")
+        .select("id, description, status, created_at, location, assigned_at, categories(category_name)")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
       if (cancelled) return;
 
+      // Load issue resolutions for work history (check-in/check-out times)
+      const reportIds = reportRows?.map((r) => r.id) || [];
+      let resolutionsMap = {};
+      if (reportIds.length > 0) {
+        const { data: resolutionRows } = await supabase
+          .from("issue_resolutions")
+          .select("report_id, attended_at")
+          .in("report_id", reportIds);
+        if (resolutionRows) {
+          resolutionsMap = resolutionRows.reduce((acc, res) => {
+            acc[res.report_id] = { attended_at: res.attended_at };
+            return acc;
+          }, {});
+        }
+      }
+
+      if (cancelled) return;
+
+      setResolutions(resolutionsMap);
       setUserId(user.id);
       const loadedProfile = {
         name: profileRow?.full_name || "",
@@ -513,6 +534,8 @@ export default function Profile() {
             date: formatRelative(r.created_at),
             status: r.status,
             createdAt: r.created_at,
+            location: r.location,
+            assigned_at: r.assigned_at,
           }))
         );
       }
@@ -616,24 +639,55 @@ export default function Profile() {
 
   const filteredReports = reportFilter === "all" ? reports : reports.filter((r) => r.status === reportFilter);
   const stats = {
-    submitted: reports.length,
-    progress: reports.filter((r) => r.status === "in_progress").length,
+    open: reports.filter((r) => r.status === "open").length,
+    in_progress: reports.filter((r) => r.status === "in_progress").length,
     resolved: reports.filter((r) => r.status === "resolved").length,
-    rejected: reports.filter((r) => r.status === "closed").length,
+    closed: reports.filter((r) => r.status === "closed").length,
   };
 
+  const timeFormatter = new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+
   const activityData = useMemo(
-    () =>
-      [...reports]
-        .slice(0, 6)
-        .map((r) => ({
-          title:
-            r.status === "resolved"
-              ? `Report resolved: ${r.title}`
-              : `Submitted report: ${r.title}`,
-          meta: formatRelative(r.createdAt),
-        })),
-    [reports]
+    () => {
+      const activities = [...reports]
+        .slice(0, 8)
+        .map((r) => {
+          const resolution = resolutions[r.id];
+          const checkIn = r.assigned_at ? timeFormatter.format(new Date(r.assigned_at)) : null;
+          const checkOut = resolution?.attended_at ? timeFormatter.format(new Date(resolution.attended_at)) : null;
+          
+          if (checkIn && checkOut) {
+            return {
+              title: `Work completed: ${r.title}`,
+              meta: `Check-in: ${checkIn} → Check-out: ${checkOut}`,
+              location: r.location,
+            };
+          } else if (checkIn) {
+            return {
+              title: `Work started on: ${r.title}`,
+              meta: `Check-in: ${checkIn}`,
+              location: r.location,
+            };
+          } else {
+            return {
+              title:
+                r.status === "resolved"
+                  ? `Report resolved: ${r.title}`
+                  : `Submitted report: ${r.title}`,
+              meta: formatRelative(r.createdAt),
+              location: r.location,
+            };
+          }
+        });
+      return activities;
+    },
+    [reports, resolutions]
   );
 
   // Computed data for the Category-Breakdown Stacked Bar Chart & its dynamic legend keys
@@ -943,6 +997,11 @@ export default function Profile() {
                             />
                             <span className="activity-timeline__title" style={{ fontWeight: 600, color: C.ink900, display: "block" }}>{a.title}</span>
                             <span className="activity-timeline__meta" style={{ color: C.ink500, fontSize: 12 }}>{a.meta}</span>
+                            {a.location && (
+                              <span className="activity-timeline__location" style={{ color: C.ink500, fontSize: 12, display: "block", marginTop: 2 }}>
+                                📍 {a.location}
+                              </span>
+                            )}
                           </li>
                         );
                       })}
@@ -1243,10 +1302,10 @@ export default function Profile() {
               <h3 style={{ margin: "0 0 14px", fontSize: 16, fontFamily: FONT_DISPLAY }}>My Stats</h3>
               <div className="stats-card__grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
                 {[
-                  { label: "Reports Submitted", value: stats.submitted, Icon: FileText, bg: C.green050, fg: C.green600 },
-                  { label: "In Progress", value: stats.progress, Icon: Clock, bg: C.amber100, fg: C.amber500 },
+                  { label: "Open", value: stats.open, Icon: FileText, bg: C.green050, fg: C.green600 },
+                  { label: "In Progress", value: stats.in_progress, Icon: Clock, bg: C.amber100, fg: C.amber500 },
                   { label: "Resolved", value: stats.resolved, Icon: CheckCircle2, bg: C.blue100, fg: C.blue500 },
-                  { label: "Closed", value: stats.rejected, Icon: XCircle, bg: C.purple100, fg: C.purple500 },
+                  { label: "Closed", value: stats.closed, Icon: XCircle, bg: C.purple100, fg: C.purple500 },
                 ].map((s) => (
                   <div
                     key={s.label}

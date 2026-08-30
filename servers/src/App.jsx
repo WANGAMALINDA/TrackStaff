@@ -6,7 +6,7 @@ import Login from "./pages/Login";
 
 export default function App({ name = "app-root" }) {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename="/TrackStaff/">
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/dashboard" element={<TrackServDashboard name="trackserv-dashboard-root" />} />

@@ -379,6 +379,10 @@ export default function Profile() {
   const [profile, setProfile] = useState(defaultProfile);
   const [reports, setReports] = useState([]);
   const [resolutions, setResolutions] = useState({});
+  // Work assigned to this user (drives Stats, Activity, and the Impact chart —
+  // distinct from `reports`, which is what this citizen has personally submitted).
+  const [assignedReports, setAssignedReports] = useState([]);
+  const [assignedResolutions, setAssignedResolutions] = useState({});
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [activeTab, setActiveTab] = useState("overview");
@@ -509,6 +513,51 @@ export default function Profile() {
       if (cancelled) return;
 
       setResolutions(resolutionsMap);
+
+      // Work assigned to this user (mirrors the Dashboard's "assigned to me" query).
+      // `assigned_to` stores the assignee's profile UUID.
+      const { data: assignedRowsData, error: assignedError } = await supabase
+        .from("reports")
+        .select("id, title, description, status, created_at, location, assigned_at, categories(category_name)")
+        .eq("assigned_to", user.id)
+        .order("assigned_at", { ascending: false });
+      const assignedRows = assignedRowsData || [];
+
+      if (cancelled) return;
+
+      const assignedIds = assignedRows?.map((r) => r.id) || [];
+      let assignedResolutionsMap = {};
+      if (assignedIds.length > 0) {
+        const { data: assignedResolutionRows } = await supabase
+          .from("issue_resolutions")
+          .select("report_id, attended_at")
+          .in("report_id", assignedIds);
+        if (assignedResolutionRows) {
+          assignedResolutionsMap = assignedResolutionRows.reduce((acc, res) => {
+            acc[res.report_id] = { attended_at: res.attended_at };
+            return acc;
+          }, {});
+        }
+      }
+
+      if (cancelled) return;
+
+      setAssignedResolutions(assignedResolutionsMap);
+      if (!assignedError && assignedRows) {
+        setAssignedReports(
+          assignedRows.map((r) => ({
+            id: r.id,
+            title: r.title || r.description,
+            category: r.categories?.category_name || "General",
+            date: formatRelative(r.created_at),
+            status: r.status,
+            createdAt: r.created_at,
+            location: r.location,
+            assigned_at: r.assigned_at,
+          }))
+        );
+      }
+
       setUserId(user.id);
       const loadedProfile = {
         name: profileRow?.full_name || "",
@@ -638,11 +687,12 @@ export default function Profile() {
   }
 
   const filteredReports = reportFilter === "all" ? reports : reports.filter((r) => r.status === reportFilter);
+  // Stats reflect work assigned to this user, not what they've personally submitted.
   const stats = {
-    open: reports.filter((r) => r.status === "open").length,
-    in_progress: reports.filter((r) => r.status === "in_progress").length,
-    resolved: reports.filter((r) => r.status === "resolved").length,
-    closed: reports.filter((r) => r.status === "closed").length,
+    open: assignedReports.filter((r) => r.status === "open").length,
+    in_progress: assignedReports.filter((r) => r.status === "in_progress").length,
+    resolved: assignedReports.filter((r) => r.status === "resolved").length,
+    closed: assignedReports.filter((r) => r.status === "closed").length,
   };
 
   const timeFormatter = new Intl.DateTimeFormat("en-US", {
@@ -655,10 +705,11 @@ export default function Profile() {
 
   const activityData = useMemo(
     () => {
-      const activities = [...reports]
+      // Activity is driven by assigned work (check-ins/check-outs), not submitted reports.
+      const activities = [...assignedReports]
         .slice(0, 8)
         .map((r) => {
-          const resolution = resolutions[r.id];
+          const resolution = assignedResolutions[r.id];
           const checkIn = r.assigned_at ? timeFormatter.format(new Date(r.assigned_at)) : null;
           const checkOut = resolution?.attended_at ? timeFormatter.format(new Date(resolution.attended_at)) : null;
           
@@ -678,8 +729,8 @@ export default function Profile() {
             return {
               title:
                 r.status === "resolved"
-                  ? `Report resolved: ${r.title}`
-                  : `Submitted report: ${r.title}`,
+                  ? `Issue resolved: ${r.title}`
+                  : `Assigned to you: ${r.title}`,
               meta: formatRelative(r.createdAt),
               location: r.location,
             };
@@ -687,7 +738,7 @@ export default function Profile() {
         });
       return activities;
     },
-    [reports, resolutions]
+    [assignedReports, assignedResolutions]
   );
 
   // Computed data for the Category-Breakdown Stacked Bar Chart & its dynamic legend keys
@@ -695,8 +746,9 @@ export default function Profile() {
     const activeFilterObj = IMPACT_TIME_FILTERS.find((f) => f.key === impactFilter) || IMPACT_TIME_FILTERS[0];
     const monthCount = activeFilterObj.months;
 
+    // Chart reflects assigned work, categorized and bucketed by month.
     const categoriesSet = new Set();
-    reports.forEach((r) => {
+    assignedReports.forEach((r) => {
       if (r.category) categoriesSet.add(r.category);
     });
     const categories = Array.from(categoriesSet);
@@ -714,7 +766,7 @@ export default function Profile() {
       buckets[label] = bucketObj;
     }
 
-    reports.forEach((r) => {
+    assignedReports.forEach((r) => {
       if (!r.createdAt) return;
       const reportDate = new Date(r.createdAt);
       const label = reportDate.toLocaleDateString("en-US", { month: "short", ...(monthCount > 6 ? { year: "2-digit" } : {}) });
@@ -727,7 +779,7 @@ export default function Profile() {
       impactData: Object.values(buckets),
       allCategories: categories,
     };
-  }, [reports, impactFilter]);
+  }, [assignedReports, impactFilter]);
 
   if (loading) {
     return (
@@ -965,7 +1017,7 @@ export default function Profile() {
                     <h3 style={{ margin: "0 0 12px", fontSize: 16, fontFamily: FONT_DISPLAY }}>Recent Activity</h3>
                     <ul className="activity-timeline" style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column" }}>
                       {activityData.length === 0 && (
-                        <p style={{ color: C.ink500, fontSize: 14 }}>No activity yet — submit a report to get started.</p>
+                        <p style={{ color: C.ink500, fontSize: 14 }}>No activity yet — you'll see updates here once work is assigned to you.</p>
                       )}
                       {activityData.map((a, i) => {
                         const last = i === activityData.length - 1;
@@ -1224,9 +1276,9 @@ export default function Profile() {
             <section className="impact-card" style={{ ...cardStyle, marginTop: 22, padding: "22px 28px" }}>
               <div className="impact-card__header" style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 14 }}>
                 <div>
-                  <h3 style={{ margin: "0 0 2px", fontFamily: FONT_DISPLAY, fontSize: "1rem" }}>Community Impact Breakdown</h3>
+                  <h3 style={{ margin: "0 0 2px", fontFamily: FONT_DISPLAY, fontSize: "1rem" }}>Assigned Work Breakdown</h3>
                   <p style={{ margin: 0, fontSize: 13, color: C.ink500 }}>
-                    Reports categorized by type over time.
+                    Issues assigned to you, categorized by type over time.
                   </p>
                 </div>
                 {/* Timeframe Filter Buttons */}
@@ -1299,7 +1351,7 @@ export default function Profile() {
           {/* SIDEBAR */}
           <aside className="profile-sidebar" style={{ display: "flex", flexDirection: "column", gap: 22 }}>
             <section className="stats-card" style={{ ...cardStyle, padding: "20px 20px 18px" }}>
-              <h3 style={{ margin: "0 0 14px", fontSize: 16, fontFamily: FONT_DISPLAY }}>My Stats</h3>
+              <h3 style={{ margin: "0 0 14px", fontSize: 16, fontFamily: FONT_DISPLAY }}>My Assigned Work</h3>
               <div className="stats-card__grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
                 {[
                   { label: "Open", value: stats.open, Icon: FileText, bg: C.green050, fg: C.green600 },

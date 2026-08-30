@@ -34,6 +34,7 @@ import {
 // Dashboard.jsx wraps itself in — keeps Profile and Dashboard on one
 // consistent navigation pattern.
 import Sidebar from "../components/Sidebar";
+import { supabase } from "../components/supabaseClient";
 
 /* ---------- Design tokens (was :root CSS variables) ---------- */
 const C = {

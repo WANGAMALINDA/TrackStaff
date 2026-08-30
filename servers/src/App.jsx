@@ -1,10 +1,9 @@
-import React from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import TrackServDashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
 import Login from "./pages/Login";
 
-export default function App({ name = "app-root" }) {
+export default function App() {
   return (
     <BrowserRouter basename="/TrackStaff/">
       <Routes>

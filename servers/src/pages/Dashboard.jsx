@@ -63,6 +63,21 @@ const TSHWANE_BOUNDARY = [
 const TSHWANE_BOUNDS = L.latLngBounds(TSHWANE_BOUNDARY.map((p) => L.latLng(p[0], p[1])));
 const DEFAULT_MAP_CENTER = [-25.7461, 28.1881];
 
+const MAP_LAYERS = {
+  street: {
+    label: "Street",
+    url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+  },
+  satellite: {
+    label: "Satellite",
+    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    attribution: "Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community",
+    labelsUrl:
+      "https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}",
+  },
+};
+
 const markerColors = {
   resolved: "#059669",
   "in-progress": "#f59e0b",
@@ -208,6 +223,7 @@ export default function Dashboard({ name = "trackserv-dashboard-root" }) {
 
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [mapFilter, setMapFilter] = useState("all");
+  const [mapLayer, setMapLayer] = useState("street");
   const [chartFilter, setChartFilter] = useState("all");
 
   const [myLocation, setMyLocation] = useState(null);
@@ -779,6 +795,43 @@ export default function Dashboard({ name = "trackserv-dashboard-root" }) {
                   </button>
                 </div>
 
+                <div
+                  name="map-layer-toggle"
+                  className="dashboard-map-layer-toggle"
+                  style={{
+                    position: "absolute",
+                    top: 14,
+                    right: 14,
+                    zIndex: 500,
+                    display: "flex",
+                    backgroundColor: COLORS.surface,
+                    borderRadius: 10,
+                    border: `1px solid ${COLORS.ink200}`,
+                    boxShadow: cardShadow,
+                    padding: 3,
+                    gap: 2,
+                  }}
+                >
+                  {Object.entries(MAP_LAYERS).map(([key, layer]) => (
+                    <button
+                      key={key}
+                      onClick={() => setMapLayer(key)}
+                      style={{
+                        padding: "6px 12px",
+                        fontSize: 11,
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        border: "none",
+                        borderRadius: 7,
+                        background: mapLayer === key ? COLORS.green700 : "transparent",
+                        color: mapLayer === key ? "#FFFFFF" : COLORS.ink700,
+                      }}
+                    >
+                      {layer.label}
+                    </button>
+                  ))}
+                </div>
+
                 <MapContainer
                   name="tshwane-leaflet-map"
                   center={mapCenter}
@@ -789,9 +842,13 @@ export default function Dashboard({ name = "trackserv-dashboard-root" }) {
                   style={{ width: "100%", height: "100%" }}
                 >
                   <TileLayer
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                    key={mapLayer}
+                    url={MAP_LAYERS[mapLayer].url}
+                    attribution={MAP_LAYERS[mapLayer].attribution}
                   />
+                  {mapLayer === "satellite" && (
+                    <TileLayer url={MAP_LAYERS.satellite.labelsUrl} />
+                  )}
 
                   <BoundsEnforcer />
 

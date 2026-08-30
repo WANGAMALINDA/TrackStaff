@@ -5,7 +5,6 @@ import {
   Search,
   ChevronDown,
   User,
-  TriangleAlert,
   Droplet,
   Circle,
   HeadphonesIcon,
@@ -14,7 +13,9 @@ import {
   Wrench,
   LogOut,
   Trash2,
-  Flame,
+  Zap,
+  Construction,
+  HelpCircle,
 } from "lucide-react";
 import { supabase } from "./supabaseClient";
 
@@ -25,18 +26,18 @@ const navItems = [
 
 const ALL_ISSUES_ITEM = { key: "all", label: "All Issues", icon: Circle, color: "#111827" };
 
-const CATEGORY_VISUALS = [
-  { test: (n) => n.includes("water"), icon: Droplet, color: "#3b82f6" },
-  { test: (n) => n.includes("road") || n.includes("infrastructure"), icon: TriangleAlert, color: "#f59e0b" },
-  { test: (n) => n.includes("util") || n.includes("sanitation"), icon: Trash2, color: "#059669" },
-  { test: (n) => n.includes("safety") || n.includes("light"), icon: MapPin, color: "#ef4444" },
-];
-const FALLBACK_VISUAL = { icon: Flame, color: "#a855f7" };
+const CATEGORY_VISUALS = {
+  "water leak": { icon: Droplet, color: "#3b82f6" },
+  "roads & infrastructure": { icon: Construction, color: "#f97316" },
+  "electricity": { icon: Zap, color: "#eab308" },
+  "garbage": { icon: Trash2, color: "#059669" },
+  "other": { icon: HelpCircle, color: "#6b7280" },
+};
+const FALLBACK_VISUAL = { icon: HelpCircle, color: "#6b7280" };
 
 function getCategoryVisual(categoryName) {
-  const name = (categoryName || "").toLowerCase();
-  const match = CATEGORY_VISUALS.find((c) => c.test(name));
-  return match || FALLBACK_VISUAL;
+  const name = (categoryName || "").toLowerCase().trim();
+  return CATEGORY_VISUALS[name] || FALLBACK_VISUAL;
 }
 
 const roleLabels = { citizen: "Active Citizen", moderator: "Moderator", admin: "Administrator", technician: "Technician" };
@@ -102,7 +103,7 @@ export default function Sidebar({ children, activePage = "home", onPageChange, s
   );
 
   const [categoryItems, setCategoryItems] = useState([ALL_ISSUES_ITEM]);
-  const [currentUser, setCurrentUser] = useState({ name: "", role: "citizen", avatar: "" });
+  const [currentUser, setCurrentUser] = useState({ name: "Staff", role: "Staff", avatar: "" });
 
   useEffect(() => {
     const handleResize = () => {

@@ -128,20 +128,10 @@ function formatRelative(dateStr) {
 
 const TABS = [
   { key: "overview", label: "Overview" },
-  { key: "activity", label: "Activity" },
-  { key: "reports", label: "My Reports" },
+  { key: "activity", label: "Activities" },
   { key: "settings", label: "Settings" },
 ];
 
-const FILTERS = [
-  { key: "all", label: "All" },
-  { key: "open", label: "Open" },
-  { key: "under_review", label: "Under Review" },
-  { key: "in_progress", label: "In Progress" },
-  { key: "resolved", label: "Resolved" },
-  { key: "closed", label: "Closed" },
-  { key: "rejected", label: "Rejected" },
-];
 
 const IMPACT_TIME_FILTERS = [
   { key: "6m", label: "Last 6 Months", months: 6 },
@@ -965,7 +955,7 @@ export default function Profile() {
                             <span className="activity-timeline__meta" style={{ color: C.ink500, fontSize: 12 }}>{a.meta}</span>
                             {a.location && (
                               <span className="activity-timeline__location" style={{ color: C.ink500, fontSize: 12, display: "block", marginTop: 2 }}>
-                                📍 {a.location}
+                                → {a.location}
                               </span>
                             )}
                           </li>

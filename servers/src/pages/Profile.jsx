@@ -21,13 +21,6 @@ import {
   Clock,
   XCircle,
   FileText,
-  Users,
-  Star,
-  Leaf,
-  Flame,
-  Shield,
-  Flag,
-  Moon,
   ChevronRight,
 } from "lucide-react";
 // Shared app shell (sidebar nav + top identity strip), same component
@@ -131,7 +124,6 @@ const TABS = [
   { key: "activity", label: "Activities" },
   { key: "settings", label: "Settings" },
 ];
-
 
 const IMPACT_TIME_FILTERS = [
   { key: "6m", label: "Last 6 Months", months: 6 },

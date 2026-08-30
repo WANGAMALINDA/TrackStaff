@@ -320,9 +320,6 @@ export default function Profile() {
   const toastTimer = useRef(null);
   const avatarInputRef = useRef(null);
 
-
-
-  // Responsive breakpoints
   const [width, setWidth] = useState(typeof window !== "undefined" ? window.innerWidth : 1200);
   useEffect(() => {
     const onResize = () => setWidth(window.innerWidth);

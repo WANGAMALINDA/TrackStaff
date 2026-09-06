@@ -23,14 +23,12 @@ import {
   FileText,
   ChevronRight,
 } from "lucide-react";
-// Shared app shell (sidebar nav + top identity strip), same component
-// Dashboard.jsx wraps itself in — keeps Profile and Dashboard on one
-// consistent navigation pattern.
+
 import Sidebar from "../components/Sidebar";
 import Footer from "../components/footer"
 import { supabase } from "../components/supabaseClient";
 
-/* ---------- Design tokens (was :root CSS variables) ---------- */
+
 const C = {
   green900: "#0f3d2b",
   green700: "#1a6b45",
@@ -284,8 +282,7 @@ export default function Profile() {
   const [profile, setProfile] = useState(defaultProfile);
   const [reports, setReports] = useState([]);
   const [resolutions, setResolutions] = useState({});
-  // Work assigned to this user (drives Stats, Activity, and the Impact chart —
-  // distinct from `reports`, which is what this citizen has personally submitted).
+  
   const [assignedReports, setAssignedReports] = useState([]);
   const [assignedResolutions, setAssignedResolutions] = useState({});
   const [loading, setLoading] = useState(true);
@@ -1282,7 +1279,7 @@ export default function Profile() {
               </div>
               <button
                 className="stats-card__view-all"
-                onClick={() => setActiveTab("reports")}
+                onClick={() => setActiveTab("activity")}
                 style={{
                   width: "100%",
                   justifyContent: "space-between",
@@ -1298,7 +1295,7 @@ export default function Profile() {
                   cursor: "pointer",
                 }}
               >
-                View all my reports <ChevronRight size={14} aria-hidden="true" />
+                View all my Activities <ChevronRight size={14} aria-hidden="true" />
               </button>
             </section>
 

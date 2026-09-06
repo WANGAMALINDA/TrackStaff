@@ -648,6 +648,15 @@ export default function Dashboard({ name = "trackserv-dashboard-root" }) {
           .dashboard-content-grid {
             grid-template-columns: 1fr;
           }
+          .dashboard-left-column,
+          .dashboard-right-column {
+            display: contents !important;
+          }
+          .dashboard-map-card { order: 1; }
+          .dashboard-assigned-issues-card { order: 2; }
+          .dashboard-issue-details-card { order: 3; }
+          .dashboard-work-history-card { order: 4; }
+          .dashboard-how-it-works-card { order: 5; }
           .dashboard-map-card {
             height: 350px;
           }
@@ -727,7 +736,7 @@ export default function Dashboard({ name = "trackserv-dashboard-root" }) {
             name="dashboard-content-grid"
             className="dashboard-content-grid"
           >
-            <div name="dashboard-left-column" style={{ display: "flex", flexDirection: "column", gap: 20, minWidth: 0 }}>
+            <div name="dashboard-left-column" className="dashboard-left-column" style={{ display: "flex", flexDirection: "column", gap: 20, minWidth: 0 }}>
               
               <div
                 name="map-card"
@@ -914,7 +923,7 @@ export default function Dashboard({ name = "trackserv-dashboard-root" }) {
                 </MapContainer>
               </div>
 
-              <div name="assigned-issues-card" style={{ backgroundColor: COLORS.surface, borderRadius: 20, border: `1px solid ${COLORS.ink200}`, boxShadow: cardShadow, padding: 20 }}>
+              <div name="assigned-issues-card" className="dashboard-assigned-issues-card" style={{ backgroundColor: COLORS.surface, borderRadius: 20, border: `1px solid ${COLORS.ink200}`, boxShadow: cardShadow, padding: 20 }}>
                 <div name="assigned-issues-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
                   <div name="assigned-issues-title" style={{ fontWeight: 700, fontSize: 16, color: COLORS.ink900 }}>
                     My Assigned Issues ({activeAssignments.length})
@@ -1037,7 +1046,7 @@ export default function Dashboard({ name = "trackserv-dashboard-root" }) {
                 </div>
               </div>
 
-              <div name="how-it-works-card" style={{ backgroundColor: COLORS.surface, borderRadius: 20, border: `1px solid ${COLORS.ink200}`, boxShadow: cardShadow, padding: 20 }}>
+              <div name="how-it-works-card" className="dashboard-how-it-works-card" style={{ backgroundColor: COLORS.surface, borderRadius: 20, border: `1px solid ${COLORS.ink200}`, boxShadow: cardShadow, padding: 20 }}>
                 <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 16, color: COLORS.ink900 }}>
                   How it works
                 </div>
@@ -1066,9 +1075,10 @@ export default function Dashboard({ name = "trackserv-dashboard-root" }) {
               </div>
             </div>
 
-            <div name="dashboard-right-column" style={{ display: "flex", flexDirection: "column", gap: 20, minWidth: 0 }}>
+            <div name="dashboard-right-column" className="dashboard-right-column" style={{ display: "flex", flexDirection: "column", gap: 20, minWidth: 0 }}>
               <div
                 name="issue-details-card"
+                className="dashboard-issue-details-card"
                 style={{
                   backgroundColor: COLORS.surface,
                   borderRadius: 20,
@@ -1368,7 +1378,7 @@ export default function Dashboard({ name = "trackserv-dashboard-root" }) {
                 )}
               </div>
 
-              <div style={{ backgroundColor: COLORS.surface, borderRadius: 20, border: `1px solid ${COLORS.ink200}`, boxShadow: cardShadow, padding: 20, overflow: "hidden" }}>
+              <div className="dashboard-work-history-card" style={{ backgroundColor: COLORS.surface, borderRadius: 20, border: `1px solid ${COLORS.ink200}`, boxShadow: cardShadow, padding: 20, overflow: "hidden" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
                   <div style={{ fontWeight: 700, fontSize: 15, color: COLORS.ink900 }}>My Work History / Reports</div>
                   <span style={{ fontSize: 13, color: COLORS.green700, cursor: "pointer", fontWeight: 600 }}>View all</span>

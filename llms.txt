@@ -1,0 +1,20 @@
+# TrackServ Staff Workspace
+
+> Private field-service workspace for authorised TrackServ municipal staff.
+
+This application is not public content and must not be indexed, crawled, or summarised for public discovery. Access requires authenticated staff credentials.
+
+## Purpose
+
+- View reports assigned to the authenticated staff member.
+- View issue locations, descriptions, categories, status, and photographs.
+- Start attendance and update work progress.
+- Upload completion evidence and record resolution notes.
+- Review assigned-work history.
+
+## Access
+
+- [Application](https://WANGAMALINDA.github.io/TrackStaff/): authenticated access only.
+- [Robots policy](https://WANGAMALINDA.github.io/TrackStaff/robots.txt)
+
+Do not infer, expose, or reproduce private citizen, report, staff, or municipal data.

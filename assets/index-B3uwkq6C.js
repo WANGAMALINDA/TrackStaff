@@ -138,14 +138,14 @@ In order to be iterable, non-array objects must have a [Symbol.iterator]() metho
           --muted: #68717d;
           --border: #cfd6d2;
 
-          min-height: 100vh;
+          min-height: 100dvh;
           font-family: Arial, Helvetica, sans-serif;
           color: var(--text);
           background: #f8fbfa;
           display: flex;
           align-items: center;
           justify-content: center;
-          padding: 30px 18px;
+          padding: max(20px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
           position: relative;
           overflow-x: hidden;
           overflow-y: auto;
@@ -178,6 +178,7 @@ In order to be iterable, non-array objects must have a [Symbol.iterator]() metho
           width: 100%;
           max-width: 420px;
           padding: 40px 32px;
+          box-sizing: border-box;
           border-radius: 12px;
           box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
           position: relative;
@@ -283,5 +284,31 @@ In order to be iterable, non-array objects must have a [Symbol.iterator]() metho
           font-size: 14px;
           text-align: center;
           font-weight: 500;
+        }
+
+        @media (max-width: 520px) {
+          .login-page-wrapper {
+            align-items: flex-start;
+            padding: 16px;
+          }
+
+          .login-container {
+            max-width: 100%;
+            padding: 28px 20px;
+          }
+
+          .login-btn {
+            min-height: 46px;
+          }
+        }
+
+        @media (max-width: 360px) {
+          .login-container {
+            padding: 22px 16px;
+          }
+
+          .header-box {
+            margin-bottom: 22px;
+          }
         }
       `}),e[9]=w):w=e[9];let T;e[10]===Symbol.for(`react.memo_cache_sentinel`)?(T=(0,q.jsx)(`div`,{style:{width:36,height:36,borderRadius:`50%`,backgroundColor:`#059669`,display:`flex`,alignItems:`center`,justifyContent:`center`,flexShrink:0},children:(0,q.jsx)(En,{size:20,color:`#fff`})}),e[10]=T):T=e[10];let E;e[11]===l?E=e[12]:(E=!l&&(0,q.jsxs)(`div`,{style:{lineHeight:1.2,textAlign:`left`},children:[(0,q.jsxs)(`p`,{style:{margin:0,fontWeight:700,color:`#111827`,fontSize:18},children:[`Track`,(0,q.jsx)(`span`,{style:{color:`#059669`},children:`Serv`})]}),(0,q.jsx)(`p`,{style:{margin:0,marginTop:-2,fontSize:11,color:`#6b7280`},children:`Unified Citizen Hub`})]}),e[11]=l,e[12]=E);let D;e[13]===E?D=e[14]:(D=(0,q.jsxs)(`div`,{className:`brand-header`,children:[T,E]}),e[13]=E,e[14]=D);let O;e[15]===Symbol.for(`react.memo_cache_sentinel`)?(O=(0,q.jsx)(`p`,{style:{color:`var(--muted)`,fontSize:15,margin:0},children:`Sign In to your account`}),e[15]=O):O=e[15];let k;e[16]===D?k=e[17]:(k=(0,q.jsxs)(`div`,{className:`header-box`,children:[D,O]}),e[16]=D,e[17]=k);let A;e[18]===Symbol.for(`react.memo_cache_sentinel`)?(A=(0,q.jsx)(`label`,{htmlFor:`email`,children:`Email Address`}),e[18]=A):A=e[18];let j;e[19]===Symbol.for(`react.memo_cache_sentinel`)?(j=e=>n(e.target.value),e[19]=j):j=e[19];let M;e[20]!==t||e[21]!==d?(M=(0,q.jsxs)(`div`,{className:`form-group`,children:[A,(0,q.jsx)(`input`,{type:`email`,id:`email`,value:t,onChange:j,placeholder:`name@example.com`,required:!0,disabled:d})]}),e[20]=t,e[21]=d,e[22]=M):M=e[22];let N;e[23]===Symbol.for(`react.memo_cache_sentinel`)?(N=(0,q.jsx)(`label`,{htmlFor:`password`,children:`Password`}),e[23]=N):N=e[23];let P=a?`text`:`password`,ee;e[24]===Symbol.for(`react.memo_cache_sentinel`)?(ee=e=>i(e.target.value),e[24]=ee):ee=e[24];let F;e[25]!==d||e[26]!==r||e[27]!==P?(F=(0,q.jsx)(`input`,{type:P,id:`password`,value:r,onChange:ee,placeholder:`Enter your password`,required:!0,disabled:d}),e[25]=d,e[26]=r,e[27]=P,e[28]=F):F=e[28];let I;e[29]===a?I=e[30]:(I=()=>o(!a),e[29]=a,e[30]=I);let R;e[31]===a?R=e[32]:(R=a?(0,q.jsx)(vn,{size:18}):(0,q.jsx)(yn,{size:18}),e[31]=a,e[32]=R);let z;e[33]!==d||e[34]!==I||e[35]!==R?(z=(0,q.jsx)(`button`,{type:`button`,className:`toggle-password`,onClick:I,"aria-label":`Toggle password visibility`,disabled:d,children:R}),e[33]=d,e[34]=I,e[35]=R,e[36]=z):z=e[36];let B;e[37]!==F||e[38]!==z?(B=(0,q.jsxs)(`div`,{className:`form-group`,children:[N,F,z]}),e[37]=F,e[38]=z,e[39]=B):B=e[39];let V=d?`Authenticating...`:`Sign In`,te;e[40]!==d||e[41]!==V?(te=(0,q.jsx)(`button`,{type:`submit`,className:`login-btn`,disabled:d,children:V}),e[40]=d,e[41]=V,e[42]=te):te=e[42];let ne;e[43]!==b||e[44]!==M||e[45]!==B||e[46]!==te?(ne=(0,q.jsxs)(`form`,{onSubmit:b,id:`loginForm`,children:[M,B,te]}),e[43]=b,e[44]=M,e[45]=B,e[46]=te,e[47]=ne):ne=e[47];let re;e[48]===S?re=e[49]:(re=(0,q.jsx)(`a`,{href:`#forgot`,className:`forgot-password`,onClick:S,children:`Forgot Password?`}),e[48]=S,e[49]=re);let ie;e[50]===s?ie=e[51]:(ie=s&&(0,q.jsx)(`div`,{className:`status-message`,children:s}),e[50]=s,e[51]=ie);let ae;return e[52]!==k||e[53]!==ne||e[54]!==re||e[55]!==ie?(ae=(0,q.jsxs)(`div`,{className:`login-page-wrapper`,children:[w,(0,q.jsxs)(`div`,{className:`login-container`,children:[k,ne,re,ie]})]}),e[52]=k,e[53]=ne,e[54]=re,e[55]=ie,e[56]=ae):ae=e[56],ae}function uq(){let e=(0,C.c)(4),t;e[0]===Symbol.for(`react.memo_cache_sentinel`)?(t=(0,q.jsx)(ot,{path:`/login`,element:(0,q.jsx)(lq,{})}),e[0]=t):t=e[0];let n;e[1]===Symbol.for(`react.memo_cache_sentinel`)?(n=(0,q.jsx)(ot,{path:`/dashboard`,element:(0,q.jsx)(Rl,{name:`trackserv-dashboard-root`})}),e[1]=n):n=e[1];let r;e[2]===Symbol.for(`react.memo_cache_sentinel`)?(r=(0,q.jsx)(ot,{path:`/profile`,element:(0,q.jsx)(KK,{})}),e[2]=r):r=e[2];let i;return e[3]===Symbol.for(`react.memo_cache_sentinel`)?(i=(0,q.jsx)(pt,{basename:`/TrackStaff/`,children:(0,q.jsxs)(ct,{children:[t,n,r,(0,q.jsx)(ot,{path:`/`,element:(0,q.jsx)(at,{to:`/login`,replace:!0})})]})}),e[3]=i):i=e[3],i}(0,y.createRoot)(document.getElementById(`root`)).render((0,q.jsx)(v.StrictMode,{children:(0,q.jsx)(uq,{})}));

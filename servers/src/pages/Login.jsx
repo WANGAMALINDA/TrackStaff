@@ -12,6 +12,8 @@ export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
+  const strictEmailPattern = /^[^\s@]+@([a-z0-9-]+\.)+[a-z]{2,63}$/i;
+
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
     checkMobile();
@@ -26,6 +28,11 @@ export default function Login() {
       return;
     }
 
+    if (!strictEmailPattern.test(email.trim())) {
+      setMessage("Enter a valid email address, including a domain such as .com or .org.");
+      return;
+    }
+
     setIsLoading(true);
     setMessage("Authenticating...");
 
@@ -35,7 +42,7 @@ export default function Login() {
     });
 
     if (authError) {
-      setMessage(authError.message);
+      setMessage("We couldn't sign you in. Check that your staff email and password are correct, then try again.");
       setIsLoading(false);
       return;
     }
@@ -62,7 +69,7 @@ export default function Login() {
     }
 
     setMessage("Login successful. Redirecting...");
-    navigate("/dashboard");
+    navigate("/dashboard", { replace: true });
   };
 
   const handleForgotPassword = async (event) => {

@@ -5,7 +5,6 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import {
   Droplet,
-  Zap,
   TriangleAlert,
   MapPin,
   Calendar,
@@ -53,6 +52,7 @@ const COLORS = {
 const cardShadow = "0 12px 30px rgba(16, 24, 40, 0.05)";
 const IDLE_TIMEOUT_MS = 5 * 60 * 1000;
 const REPORT_MEDIA_BUCKET = "images";
+const MAP_RETENTION_MS = 2 * 24 * 60 * 60 * 1000;
 
 const TSHWANE_BOUNDARY = [
   [-25.42, 27.93], [-25.35, 28.15], [-25.33, 28.35], [-25.40, 28.55],
@@ -122,6 +122,11 @@ function markerStatus(status) {
   if (status === "resolved" || status === "closed") return "resolved";
   if (status === "under_review") return "under-review";
   return "unresolved"; 
+}
+
+function isVisibleOnMap(report) {
+  if (!(report.status === "resolved" || report.status === "closed")) return true;
+  return Date.now() - new Date(report.updated_at || report.created_at).getTime() < MAP_RETENTION_MS;
 }
 
 const STATUS_META = {
@@ -209,7 +214,7 @@ function BoundsEnforcer() {
   return null;
 }
 
-export default function Dashboard({ name = "trackserv-dashboard-root" }) {
+export default function Dashboard() {
   const navigate = useNavigate();
 
   const [currentUser, setCurrentUser] = useState(null);
@@ -300,7 +305,7 @@ export default function Dashboard({ name = "trackserv-dashboard-root" }) {
       const { data, error } = await supabase
         .from("reports")
         .select(
-          "id, title, description, location, latitude, longitude, status, severity, created_at, assigned_at, proof_image_url, categories(category_name), report_images(image_url)"
+          "id, title, description, location, latitude, longitude, status, severity, created_at, updated_at, assigned_at, proof_image_url, categories(category_name), report_images(image_url)"
         )
         .eq("assigned_to", currentUser.id)
         .order("assigned_at", { ascending: false });
@@ -379,7 +384,7 @@ export default function Dashboard({ name = "trackserv-dashboard-root" }) {
           setRouteCoordinates([]);
           setRouteInfo(null);
         }
-      } catch (err) {
+      } catch {
         if (!cancelled) {
           setRouteCoordinates([]);
           setRouteInfo(null);
@@ -395,6 +400,7 @@ export default function Dashboard({ name = "trackserv-dashboard-root" }) {
 
   const mapPoints = useMemo(() => {
     return reports
+      .filter(isVisibleOnMap)
       .filter((r) => r.latitude != null && r.longitude != null)
       .filter((r) => selectedCategory === "all" || r.categories?.category_name === selectedCategory)
       .map((r) => ({
@@ -426,7 +432,7 @@ export default function Dashboard({ name = "trackserv-dashboard-root" }) {
   );
 
   const workHistory = useMemo(() => {
-    return reports.map((r) => {
+    return [...reports].sort((a, b) => new Date(b.assigned_at || b.created_at) - new Date(a.assigned_at || a.created_at)).map((r) => {
       const resolution = resolutions[r.id];
       return {
         id: r.id,
@@ -1384,7 +1390,7 @@ export default function Dashboard({ name = "trackserv-dashboard-root" }) {
                   <span style={{ fontSize: 13, color: COLORS.green700, cursor: "pointer", fontWeight: 600 }}>View all</span>
                 </div>
 
-                <div style={{ overflowX: "auto", width: "100%" }}>
+                <div style={{ overflowX: "auto", overflowY: "auto", maxHeight: 190, width: "100%" }}>
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, minWidth: 420 }}>
                     <thead>
                       <tr>

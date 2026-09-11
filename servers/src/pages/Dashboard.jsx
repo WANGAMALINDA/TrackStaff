@@ -124,9 +124,10 @@ function markerStatus(status) {
   return "unresolved"; 
 }
 
-function isVisibleOnMap(report) {
+function isVisibleOnMap(report, resolution) {
   if (!(report.status === "resolved" || report.status === "closed")) return true;
-  return Date.now() - new Date(report.updated_at || report.created_at).getTime() < MAP_RETENTION_MS;
+  return !resolution?.attended_at
+    || Date.now() - new Date(resolution.attended_at).getTime() < MAP_RETENTION_MS;
 }
 
 const STATUS_META = {
@@ -400,7 +401,7 @@ export default function Dashboard() {
 
   const mapPoints = useMemo(() => {
     return reports
-      .filter(isVisibleOnMap)
+      .filter((report) => isVisibleOnMap(report, resolutions[report.id]))
       .filter((r) => r.latitude != null && r.longitude != null)
       .filter((r) => selectedCategory === "all" || r.categories?.category_name === selectedCategory)
       .map((r) => ({
@@ -410,7 +411,7 @@ export default function Dashboard() {
         title: r.title || r.description || "Report",
         category: r.categories?.category_name
       }));
-  }, [reports, selectedCategory]);
+  }, [reports, resolutions, selectedCategory]);
 
   const filteredMapMarkers = useMemo(
     () => (mapFilter === "all" ? mapPoints : mapPoints.filter((m) => m.status === mapFilter)),

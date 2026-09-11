@@ -103,14 +103,14 @@ export default function Login() {
           --muted: #68717d;
           --border: #cfd6d2;
 
-          min-height: 100vh;
+          min-height: 100dvh;
           font-family: Arial, Helvetica, sans-serif;
           color: var(--text);
           background: #f8fbfa;
           display: flex;
           align-items: center;
           justify-content: center;
-          padding: 30px 18px;
+          padding: max(20px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
           position: relative;
           overflow-x: hidden;
           overflow-y: auto;
@@ -143,6 +143,7 @@ export default function Login() {
           width: 100%;
           max-width: 420px;
           padding: 40px 32px;
+          box-sizing: border-box;
           border-radius: 12px;
           box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
           position: relative;
@@ -248,6 +249,32 @@ export default function Login() {
           font-size: 14px;
           text-align: center;
           font-weight: 500;
+        }
+
+        @media (max-width: 520px) {
+          .login-page-wrapper {
+            align-items: flex-start;
+            padding: 16px;
+          }
+
+          .login-container {
+            max-width: 100%;
+            padding: 28px 20px;
+          }
+
+          .login-btn {
+            min-height: 46px;
+          }
+        }
+
+        @media (max-width: 360px) {
+          .login-container {
+            padding: 22px 16px;
+          }
+
+          .header-box {
+            margin-bottom: 22px;
+          }
         }
       `}</style>
 

@@ -935,9 +935,6 @@ export default function Dashboard() {
                   <div name="assigned-issues-title" style={{ fontWeight: 700, fontSize: 16, color: COLORS.ink900 }}>
                     My Assigned Issues ({activeAssignments.length})
                   </div>
-                  <span name="assigned-issues-view-all" style={{ fontSize: 13, color: COLORS.green700, cursor: "pointer", fontWeight: 600 }}>
-                    View all
-                  </span>
                 </div>
 
                 {loadingReports && (

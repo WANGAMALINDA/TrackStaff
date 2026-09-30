@@ -281,7 +281,7 @@ export default function Profile() {
   const [userId, setUserId] = useState(null);
   const [profile, setProfile] = useState(defaultProfile);
   const [reports, setReports] = useState([]);
-  const [resolutions, setResolutions] = useState({});
+
   
   const [assignedReports, setAssignedReports] = useState([]);
   const [assignedResolutions, setAssignedResolutions] = useState({});

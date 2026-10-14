@@ -284,6 +284,7 @@ export default function Profile() {
 
   
   const [assignedReports, setAssignedReports] = useState([]);
+  const [resolutions, setResolutions] = useState({});
   const [assignedResolutions, setAssignedResolutions] = useState({});
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");

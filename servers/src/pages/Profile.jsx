@@ -601,7 +601,7 @@ export default function Profile() {
     () => {
       // Activity is driven by assigned work (check-ins/check-outs), not submitted reports.
       const activities = [...assignedReports]
-        .slice(0, 8)
+        .slice(0, 4)
         .map((r) => {
           const resolution = assignedResolutions[r.id];
           const checkIn = r.assigned_at ? timeFormatter.format(new Date(r.assigned_at)) : null;

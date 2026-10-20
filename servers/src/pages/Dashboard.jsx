@@ -446,16 +446,12 @@ export default function Dashboard() {
     });
   }, [reports, resolutions]);
 
-  const handleMapFilterClick = () => {
-    const currentIndex = mapFilterOptions.indexOf(mapFilter);
-    const nextIndex = (currentIndex + 1) % mapFilterOptions.length;
-    setMapFilter(mapFilterOptions[nextIndex]);
+  const handleMapFilterSelect = (value) => {
+    setMapFilter(value);
   };
 
-  const handleChartFilterClick = () => {
-    const currentIndex = chartFilterOptions.indexOf(chartFilter);
-    const nextIndex = (currentIndex + 1) % chartFilterOptions.length;
-    setChartFilter(chartFilterOptions[nextIndex]);
+  const handleChartFilterSelect = (value) => {
+    setChartFilter(value);
   };
 
   const startAttendance = async () => {
@@ -722,21 +718,44 @@ export default function Dashboard() {
               </h1>
             </div>
             
-            <button
-              onClick={handleChartFilterClick}
+            <div
+              aria-label="Chart status filter"
               style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 6,
+                alignItems: "center",
                 backgroundColor: COLORS.surface,
                 border: `1px solid ${COLORS.ink200}`,
-                padding: "8px 16px",
-                borderRadius: 8,
-                fontSize: 13,
-                fontWeight: 600,
-                cursor: "pointer",
+                borderRadius: 10,
+                padding: 4,
                 boxShadow: "0 1px 2px rgba(0,0,0,0.05)"
               }}
             >
-              Chart Filter: {chartFilterLabels[chartFilter]}
-            </button>
+              {chartFilterOptions.map((option) => {
+                const isActive = chartFilter === option;
+                return (
+                  <button
+                    key={option}
+                    type="button"
+                    aria-pressed={isActive}
+                    onClick={() => handleChartFilterSelect(option)}
+                    style={{
+                      border: "none",
+                      borderRadius: 8,
+                      backgroundColor: isActive ? COLORS.green100 : "transparent",
+                      color: isActive ? COLORS.green700 : COLORS.ink500,
+                      padding: "6px 10px",
+                      fontSize: 12,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {chartFilterLabels[option]}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           <div
@@ -757,22 +776,40 @@ export default function Dashboard() {
                 >
                   
                   
-                  <button
-                    onClick={handleMapFilterClick}
+                  <div
+                    aria-label="Map issue filter"
                     style={{
-                      width: "100%",
-                      padding: "6px",
-                      fontSize: 11,
-                      fontWeight: 600,
-                      cursor: "pointer",
-                      border: `1px solid ${COLORS.ink200}`,
-                      borderRadius: 6,
-                      background: COLORS.ink100,
-                      color: COLORS.ink900
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: 6,
                     }}
                   >
-                    Filter: {mapFilterLabels[mapFilter]}
-                  </button>
+                    {mapFilterOptions.map((option) => {
+                      const isActive = mapFilter === option;
+                      return (
+                        <button
+                          key={option}
+                          type="button"
+                          aria-pressed={isActive}
+                          onClick={() => handleMapFilterSelect(option)}
+                          style={{
+                            flex: "1 1 40%",
+                            padding: "6px 8px",
+                            fontSize: 10,
+                            fontWeight: 700,
+                            cursor: "pointer",
+                            border: `1px solid ${isActive ? COLORS.green600 : COLORS.ink200}`,
+                            borderRadius: 6,
+                            background: isActive ? COLORS.green100 : COLORS.ink100,
+                            color: isActive ? COLORS.green700 : COLORS.ink900,
+                            minHeight: 30,
+                          }}
+                        >
+                          {mapFilterLabels[option]}
+                        </button>
+                      );
+                    })}
+                  </div>
 
                   {routeInfo && (
                     <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: COLORS.ink700, marginTop: 8 }}>

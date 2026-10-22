@@ -1422,7 +1422,7 @@ export default function Dashboard() {
               <div className="dashboard-work-history-card" style={{ backgroundColor: COLORS.surface, borderRadius: 20, border: `1px solid ${COLORS.ink200}`, boxShadow: cardShadow, padding: 20, overflow: "hidden" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
                   <div style={{ fontWeight: 700, fontSize: 15, color: COLORS.ink900 }}>My Work History / Reports</div>
-                  <span style={{ fontSize: 13, color: COLORS.green700, cursor: "pointer", fontWeight: 600 }}>View all</span>
+                  <span style={{ fontSize: 13, color: COLORS.green700, cursor: "pointer", fontWeight: 600 }}></span>
                 </div>
 
                 <div style={{ overflowX: "auto", overflowY: "auto", maxHeight: 190, width: "100%" }}>

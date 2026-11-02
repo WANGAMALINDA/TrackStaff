@@ -254,6 +254,7 @@ export default function Dashboard() {
   const [mapFilter, setMapFilter] = useState("all");
   const [mapLayer, setMapLayer] = useState("street");
   const [chartFilter, setChartFilter] = useState("all");
+  const [assignedIssuesPage, setAssignedIssuesPage] = useState(0);
 
   const [myLocation, setMyLocation] = useState(null);
   const [routeCoordinates, setRouteCoordinates] = useState([]);
@@ -475,6 +476,15 @@ export default function Dashboard() {
   const activeAssignments = useMemo(
     () => reports.filter((r) => !["resolved", "closed", "rejected"].includes(r.status)),
     [reports]
+  );
+  const assignedIssuesPageCount = Math.ceil(activeAssignments.length / 6);
+  const currentAssignedIssuesPage = Math.min(
+    assignedIssuesPage,
+    Math.max(0, assignedIssuesPageCount - 1)
+  );
+  const visibleAssignments = activeAssignments.slice(
+    currentAssignedIssuesPage * 6,
+    currentAssignedIssuesPage * 6 + 6
   );
 
   const workHistory = useMemo(() => {
@@ -1076,7 +1086,7 @@ export default function Dashboard() {
                 )}
 
                 <div name="assigned-issues-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 12 }}>
-                  {activeAssignments.map((issue) => {
+                  {visibleAssignments.map((issue) => {
                     const visual = getCategoryVisual(issue.categories?.category_name);
                     const Icon = visual.icon;
                     const displayStatus = statusToDisplay(issue.status);
@@ -1174,6 +1184,55 @@ export default function Dashboard() {
                     );
                   })}
                 </div>
+                {activeAssignments.length > 0 && (
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      gap: 12,
+                      marginTop: 16,
+                    }}
+                  >
+                    <span style={{ fontSize: 12, color: COLORS.ink500 }}>
+                      Showing {currentAssignedIssuesPage * 6 + 1}–{Math.min((currentAssignedIssuesPage + 1) * 6, activeAssignments.length)} of {activeAssignments.length}
+                    </span>
+                    {assignedIssuesPageCount > 1 && (
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <button
+                          type="button"
+                          onClick={() => setAssignedIssuesPage(currentAssignedIssuesPage - 1)}
+                          disabled={currentAssignedIssuesPage === 0}
+                          style={{
+                            border: `1px solid ${COLORS.ink200}`,
+                            borderRadius: 8,
+                            padding: "6px 12px",
+                            backgroundColor: COLORS.surface,
+                            color: currentAssignedIssuesPage === 0 ? COLORS.ink300 : COLORS.ink700,
+                            cursor: currentAssignedIssuesPage === 0 ? "not-allowed" : "pointer",
+                          }}
+                        >
+                          Previous
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setAssignedIssuesPage(currentAssignedIssuesPage + 1)}
+                          disabled={currentAssignedIssuesPage >= assignedIssuesPageCount - 1}
+                          style={{
+                            border: `1px solid ${COLORS.ink200}`,
+                            borderRadius: 8,
+                            padding: "6px 12px",
+                            backgroundColor: COLORS.surface,
+                            color: currentAssignedIssuesPage >= assignedIssuesPageCount - 1 ? COLORS.ink300 : COLORS.ink700,
+                            cursor: currentAssignedIssuesPage >= assignedIssuesPageCount - 1 ? "not-allowed" : "pointer",
+                          }}
+                        >
+                          Next
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div name="how-it-works-card" className="dashboard-how-it-works-card" style={{ backgroundColor: COLORS.surface, borderRadius: 20, border: `1px solid ${COLORS.ink200}`, boxShadow: cardShadow, padding: 20 }}>

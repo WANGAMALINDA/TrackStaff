@@ -1,0 +1,306 @@
+.staff-login {
+  --login-bg: #f4f5fb;
+  --login-card: rgba(255, 255, 255, 0.9);
+  --login-text: #1b1d2a;
+  --login-muted: #6b7088;
+  --login-border: #dfe2ee;
+  --login-primary: #1b7a4b;
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  min-height: 100vh;
+  min-height: 100dvh;
+  place-items: center;
+  overflow: hidden;
+  padding: 24px 16px;
+  background: var(--login-bg);
+  color: var(--login-text);
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+.staff-login__blob {
+  position: fixed;
+  z-index: -1;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.3;
+  pointer-events: none;
+  animation: staff-login-float 14s ease-in-out infinite;
+}
+
+.staff-login__blob--one {
+  top: -110px;
+  left: -90px;
+  width: 380px;
+  height: 380px;
+  background: #1b7a4b;
+}
+
+.staff-login__blob--two {
+  right: -70px;
+  bottom: -100px;
+  width: 320px;
+  height: 320px;
+  background: #2fa66a;
+  animation-delay: -6s;
+}
+
+.staff-login__card {
+  width: min(100%, 440px);
+  padding: 36px 32px;
+  border: 1px solid var(--login-border);
+  border-radius: 20px;
+  background: var(--login-card);
+  box-shadow: 0 20px 50px -20px rgba(60, 60, 140, 0.35);
+  backdrop-filter: blur(18px);
+  animation: staff-login-rise 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.staff-login__brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: fit-content;
+  margin-bottom: 30px;
+}
+
+.staff-login__brand-icon {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  place-items: center;
+  border-radius: 10px;
+  background: #059669;
+  color: #fff;
+}
+
+.staff-login__brand-name {
+  color: #111827;
+  font-size: 19px;
+  font-weight: 750;
+  letter-spacing: -0.04em;
+}
+
+.staff-login__brand-name span {
+  color: #059669;
+}
+
+.staff-login__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 12px;
+  color: var(--login-primary);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.staff-login__card h1 {
+  margin: 0;
+  font-size: 1.7rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.staff-login__subtitle {
+  margin: 7px 0 0;
+  color: var(--login-muted);
+  font-size: 0.94rem;
+  line-height: 1.6;
+}
+
+.staff-login__form {
+  display: grid;
+  gap: 18px;
+  margin-top: 27px;
+}
+
+.staff-login__field {
+  display: grid;
+  gap: 7px;
+}
+
+.staff-login__field > label {
+  color: var(--login-text);
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+.staff-login__input-wrap {
+  position: relative;
+}
+
+.staff-login__input-icon {
+  position: absolute;
+  top: 50%;
+  left: 14px;
+  transform: translateY(-50%);
+  color: var(--login-muted);
+  pointer-events: none;
+}
+
+.staff-login__input-wrap input {
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 48px 12px 42px;
+  border: 1.5px solid var(--login-border);
+  border-radius: 12px;
+  outline: none;
+  background: #fff;
+  color: var(--login-text);
+  font: inherit;
+  font-size: 16px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.staff-login__input-wrap input::placeholder {
+  color: #9a9daf;
+}
+
+.staff-login__input-wrap input:focus {
+  border-color: var(--login-primary);
+  box-shadow: 0 0 0 4px rgba(27, 122, 75, 0.14);
+}
+
+.staff-login__input-wrap input:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.staff-login__password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  transform: translateY(-50%);
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--login-muted);
+  cursor: pointer;
+}
+
+.staff-login__password-toggle:hover:not(:disabled) {
+  color: var(--login-primary);
+}
+
+.staff-login__password-toggle:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.staff-login__submit {
+  display: flex;
+  min-height: 48px;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  margin-top: 3px;
+  padding: 12px;
+  border: 0;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #0f5132, #1b7a4b);
+  box-shadow: 0 12px 24px -10px #0f5132;
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 650;
+  transition: transform 0.15s, opacity 0.2s;
+}
+
+.staff-login__submit:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.staff-login__submit:disabled {
+  cursor: progress;
+  opacity: 0.75;
+}
+
+.staff-login__spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.45);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: staff-login-spin 0.7s linear infinite;
+}
+
+.staff-login__forgot {
+  display: block;
+  margin-top: 18px;
+  color: var(--login-primary);
+  font-size: 0.86rem;
+  font-weight: 600;
+  text-align: center;
+  text-decoration: none;
+}
+
+.staff-login__forgot:hover {
+  text-decoration: underline;
+}
+
+.staff-login__message {
+  margin-top: 18px;
+  padding: 12px 14px;
+  border: 1px solid;
+  border-radius: 12px;
+  font-size: 0.86rem;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.staff-login__message.success {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+  color: #166534;
+}
+
+.staff-login__message.error {
+  border-color: #f1b6b6;
+  background: rgba(229, 72, 77, 0.08);
+  color: #c62828;
+}
+
+.staff-login__footer {
+  margin: 23px 0 0;
+  color: var(--login-muted);
+  font-size: 0.82rem;
+  text-align: center;
+}
+
+@keyframes staff-login-float {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(30px, 40px) scale(1.08); }
+}
+
+@keyframes staff-login-rise {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes staff-login-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 440px) {
+  .staff-login__card {
+    padding: 28px 20px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .staff-login *,
+  .staff-login *::before,
+  .staff-login *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

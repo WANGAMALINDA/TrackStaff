@@ -1,25 +1,18 @@
-import React, { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { MapPin, Eye, EyeOff } from "lucide-react";
+import { KeyRound, Mail, MapPin, ShieldCheck, Eye, EyeOff } from "lucide-react";
 import { supabase } from "../components/supabaseClient";
+import "./Login.css";
 
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [message, setMessage] = useState("");
-  const [isMobile, setIsMobile] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
   const strictEmailPattern = /^[^\s@]+@([a-z0-9-]+\.)+[a-z]{2,63}$/i;
-
-  useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth < 768);
-    checkMobile();
-    window.addEventListener("resize", checkMobile);
-    return () => window.removeEventListener("resize", checkMobile);
-  }, []);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -92,272 +85,96 @@ export default function Login() {
     setIsLoading(false);
   };
 
+  const isSuccessMessage = message.startsWith("Login successful") ||
+    message.startsWith("Password reset instructions");
+
   return (
-    <div className="login-page-wrapper">
-      <style>{`
-        .login-page-wrapper {
-          --green: #087f4f;
-          --green-dark: #066b43;
-          --green-light: #e7f5ee;
-          --text: #18212f;
-          --muted: #68717d;
-          --border: #cfd6d2;
+    <main className="staff-login" aria-labelledby="staff-login-title">
+      <div className="staff-login__blob staff-login__blob--one" aria-hidden="true" />
+      <div className="staff-login__blob staff-login__blob--two" aria-hidden="true" />
 
-          min-height: 100dvh;
-          font-family: Arial, Helvetica, sans-serif;
-          color: var(--text);
-          background: #f8fbfa;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: max(20px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
-          position: relative;
-          overflow-x: hidden;
-          overflow-y: auto;
-        }
-
-        .login-page-wrapper::before,
-        .login-page-wrapper::after {
-          content: "";
-          position: fixed;
-          width: 360px;
-          height: 360px;
-          border-radius: 50%;
-          z-index: 0;
-        }
-
-        .login-page-wrapper::before {
-          background: var(--green-light);
-          top: -100px;
-          right: -100px;
-        }
-
-        .login-page-wrapper::after {
-          background: var(--green-light);
-          bottom: -100px;
-          left: -100px;
-        }
-
-        .login-container {
-          background: #ffffff;
-          width: 100%;
-          max-width: 420px;
-          padding: 40px 32px;
-          box-sizing: border-box;
-          border-radius: 12px;
-          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
-          position: relative;
-          z-index: 1;
-        }
-
-        .header-box {
-          margin-bottom: 28px;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          text-align: center;
-        }
-
-        .brand-header {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          margin-bottom: 12px;
-        }
-
-        .form-group {
-          margin-bottom: 20px;
-          position: relative;
-        }
-
-        .form-group label {
-          display: block;
-          font-size: 14px;
-          font-weight: 600;
-          margin-bottom: 8px;
-        }
-
-        .form-group input {
-          width: 100%;
-          padding: 12px 14px;
-          border: 1px solid var(--border);
-          border-radius: 8px;
-          outline: none;
-          font-size: 15px;
-          transition: border-color 0.2s, box-shadow 0.2s;
-          box-sizing: border-box;
-        }
-
-        .form-group input:focus {
-          border-color: var(--green);
-          box-shadow: 0 0 0 3px var(--green-light);
-        }
-
-        .toggle-password {
-          position: absolute;
-          right: 14px;
-          top: 36px;
-          background: none;
-          border: none;
-          cursor: pointer;
-          color: var(--muted);
-          padding: 0;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-
-        .login-btn {
-          width: 100%;
-          padding: 14px;
-          background: var(--green);
-          color: #ffffff;
-          border: none;
-          border-radius: 8px;
-          font-size: 16px;
-          font-weight: bold;
-          cursor: pointer;
-          transition: background 0.2s;
-          margin-top: 10px;
-        }
-
-        .login-btn:hover:not(:disabled) {
-          background: var(--green-dark);
-        }
-        
-        .login-btn:disabled {
-          opacity: 0.7;
-          cursor: not-allowed;
-        }
-
-        .forgot-password {
-          display: block;
-          text-align: center;
-          margin-top: 20px;
-          font-size: 14px;
-          color: var(--green);
-          text-decoration: none;
-          font-weight: 600;
-        }
-
-        .status-message {
-          margin-top: 20px;
-          padding: 12px;
-          border-radius: 8px;
-          background: var(--green-light);
-          color: var(--green-dark);
-          font-size: 14px;
-          text-align: center;
-          font-weight: 500;
-        }
-
-        @media (max-width: 520px) {
-          .login-page-wrapper {
-            align-items: flex-start;
-            padding: 16px;
-          }
-
-          .login-container {
-            max-width: 100%;
-            padding: 28px 20px;
-          }
-
-          .login-btn {
-            min-height: 46px;
-          }
-        }
-
-        @media (max-width: 360px) {
-          .login-container {
-            padding: 22px 16px;
-          }
-
-          .header-box {
-            margin-bottom: 22px;
-          }
-        }
-      `}</style>
-
-      <div className="login-container">
-        <div className="header-box">
-          <div className="brand-header">
-            <div
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: "50%",
-                backgroundColor: "#059669",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
-              }}
-            >
-              <MapPin size={20} color="#fff" />
-            </div>
-            {!isMobile && (
-              <div style={{ lineHeight: 1.2, textAlign: "left" }}>
-                <p style={{ margin: 0, fontWeight: 700, color: "#111827", fontSize: 18 }}>
-                  Track<span style={{ color: "#059669" }}>Serv</span>
-                </p>
-                <p style={{ margin: 0, marginTop: -2, fontSize: 11, color: "#6b7280" }}>
-                  Unified Citizen Hub
-                </p>
-              </div>
-            )}
-          </div>
-          <p style={{ color: "var(--muted)", fontSize: 15, margin: 0 }}>
-            Sign In to your account
-          </p>
+      <section className="staff-login__card">
+        <div className="staff-login__brand" aria-label="TrackServ Staff Portal">
+          <span className="staff-login__brand-icon"><MapPin size={20} aria-hidden="true" /></span>
+          <span className="staff-login__brand-name">Track<span>Serv</span></span>
         </div>
 
-        <form onSubmit={handleSubmit} id="loginForm">
-          <div className="form-group">
-            <label htmlFor="email">Email Address</label>
-            <input
-              type="email"
-              id="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="name@example.com"
-              required
-              disabled={isLoading}
-            />
+        <div className="staff-login__eyebrow">
+          <ShieldCheck size={15} aria-hidden="true" />
+          <span>Staff Portal</span>
+        </div>
+
+        <h1 id="staff-login-title">Welcome back</h1>
+        <p className="staff-login__subtitle">
+          Sign in to manage and respond to community service reports.
+        </p>
+
+        <form className="staff-login__form" onSubmit={handleSubmit} id="loginForm">
+          <div className="staff-login__field">
+            <label htmlFor="email">Staff email</label>
+            <div className="staff-login__input-wrap">
+              <Mail className="staff-login__input-icon" size={18} aria-hidden="true" />
+              <input
+                type="email"
+                id="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                required
+                disabled={isLoading}
+                autoComplete="email"
+              />
+            </div>
           </div>
 
-          <div className="form-group">
+          <div className="staff-login__field">
             <label htmlFor="password">Password</label>
-            <input
-              type={showPassword ? "text" : "password"}
-              id="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter your password"
-              required
-              disabled={isLoading}
-            />
-            <button
-              type="button"
-              className="toggle-password"
-              onClick={() => setShowPassword(!showPassword)}
-              aria-label="Toggle password visibility"
-              disabled={isLoading}
-            >
-              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-            </button>
+            <div className="staff-login__input-wrap">
+              <KeyRound className="staff-login__input-icon" size={18} aria-hidden="true" />
+              <input
+                type={showPassword ? "text" : "password"}
+                id="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter your password"
+                required
+                disabled={isLoading}
+                autoComplete="current-password"
+              />
+              <button
+                type="button"
+                className="staff-login__password-toggle"
+                onClick={() => setShowPassword(!showPassword)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                disabled={isLoading}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
           </div>
 
-          <button type="submit" className="login-btn" disabled={isLoading}>
-            {isLoading ? "Authenticating..." : "Sign In"}
+          <button type="submit" className="staff-login__submit" disabled={isLoading}>
+            {isLoading ? (
+              <><span className="staff-login__spinner" aria-hidden="true" /> Signing in…</>
+            ) : "Sign in"}
           </button>
         </form>
 
-        <a href="#forgot" className="forgot-password" onClick={handleForgotPassword}>
-          Forgot Password?
+        <a href="#forgot" className="staff-login__forgot" onClick={handleForgotPassword}>
+          Forgot password?
         </a>
 
-        {message && <div className="status-message">{message}</div>}
-      </div>
-    </div>
+        {message && (
+          <div
+            className={`staff-login__message ${isSuccessMessage ? "success" : "error"}`}
+            role={isSuccessMessage ? "status" : "alert"}
+          >
+            {message}
+          </div>
+        )}
+
+        <p className="staff-login__footer">Authorized staff accounts only</p>
+      </section>
+    </main>
   );
 }

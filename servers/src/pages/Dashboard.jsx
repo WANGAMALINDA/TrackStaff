@@ -549,7 +549,9 @@ export default function Dashboard() {
       showAttendanceNotice("Assignment started. Continue your work.");
       return;
     }
-    if (issue.status === "open") startAttendance(issue.id);
+    if (actionLabelForStatus(issue.status) === "Start Attendance") {
+      startAttendance(issue.id);
+    }
   };
 
   const handleCompletionFileChange = (event) => {

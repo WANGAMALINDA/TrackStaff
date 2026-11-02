@@ -809,18 +809,19 @@ export default function Dashboard() {
               <div
                 name="map-card"
                 className="dashboard-card dashboard-map-card"
-                style={{ backgroundColor: COLORS.surface, borderRadius: 20, zIndex: 1, border: `1px solid ${COLORS.ink200}`, boxShadow: cardShadow, overflow: "hidden", position: "relative" }}
+                style={{ backgroundColor: COLORS.surface, borderRadius: 20, zIndex: 1, border: `1px solid ${COLORS.ink200}`, boxShadow: cardShadow, overflow: "hidden", position: "relative", display: "flex", flexDirection: "column" }}
               >
                 <div
                   name="map-legend-box"
                   className="dashboard-map-legend"
-                  style={{ position: "absolute", top: 14, left: 14, zIndex: 500, backgroundColor: COLORS.surface, borderRadius: 14, border: `1px solid ${COLORS.ink200}`, padding: "12px 16px", boxShadow: cardShadow, minWidth: 150 }}
+                  style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10, backgroundColor: COLORS.surface, borderBottom: `1px solid ${COLORS.ink200}`, padding: "12px 16px" }}
                 >
                   
                   
                   <div
                     aria-label="Map issue filter"
                     style={{
+                      flex: "1 1 320px",
                       display: "flex",
                       flexWrap: "wrap",
                       gap: 6,
@@ -854,7 +855,7 @@ export default function Dashboard() {
                   </div>
 
                   {routeInfo && (
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: COLORS.ink700, marginTop: 8 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: COLORS.ink700 }}>
                       <Navigation size={12} color={COLORS.blue500} />
                       {routeInfo.distanceKm} km {"\u2022"} {routeInfo.durationMin} min drive
                     </div>
@@ -869,8 +870,7 @@ export default function Dashboard() {
                     disabled={!myLocation || !selectedIssueHasCoordinates}
                     title={!myLocation ? "Waiting for your location…" : "Open turn-by-turn voice directions"}
                     style={{
-                      width: "100%",
-                      marginTop: 6,
+                      marginLeft: "auto",
                       padding: "6px",
                       fontSize: 11,
                       fontWeight: 600,
@@ -890,6 +890,7 @@ export default function Dashboard() {
                   </button>
                 </div>
 
+                <div style={{ position: "relative", flex: "1 1 0", minHeight: 0 }}>
                 <div
                   name="map-layer-toggle"
                   className="dashboard-map-layer-toggle"
@@ -1006,6 +1007,7 @@ export default function Dashboard() {
                     </Marker>
                   ))}
                 </MapContainer>
+                </div>
               </div>
 
               <div name="assigned-issues-card" className="dashboard-assigned-issues-card" style={{ backgroundColor: COLORS.surface, borderRadius: 20, border: `1px solid ${COLORS.ink200}`, boxShadow: cardShadow, padding: 20 }}>

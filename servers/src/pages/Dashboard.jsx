@@ -267,6 +267,9 @@ export default function Dashboard() {
   const [completionError, setCompletionError] = useState("");
 
   const [viewDetailsIssue, setViewDetailsIssue] = useState(null);
+  const [attendanceNotice, setAttendanceNotice] = useState("");
+  const issueDetailsRef = useRef(null);
+  const attendanceNoticeTimerRef = useRef(null);
 
   useEffect(() => {
     setCompletionStep("idle");
@@ -470,7 +473,7 @@ export default function Dashboard() {
   }, [mapPoints]);
 
   const activeAssignments = useMemo(
-    () => reports.filter((r) => !["resolved", "closed"].includes(r.status)),
+    () => reports.filter((r) => !["resolved", "closed", "rejected"].includes(r.status)),
     [reports]
   );
 
@@ -496,31 +499,57 @@ export default function Dashboard() {
     setChartFilter(value);
   };
 
-  const startAttendance = async () => {
-    if (!selectedIssue) return;
+  const showAttendanceNotice = (message) => {
+    setAttendanceNotice(message);
+    if (attendanceNoticeTimerRef.current) clearTimeout(attendanceNoticeTimerRef.current);
+    attendanceNoticeTimerRef.current = setTimeout(() => setAttendanceNotice(""), 3000);
+  };
+
+  useEffect(() => () => {
+    if (attendanceNoticeTimerRef.current) clearTimeout(attendanceNoticeTimerRef.current);
+  }, []);
+
+  const focusIssueDetails = (issueId) => {
+    setSelectedIssueId(issueId);
+    issueDetailsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const startAttendance = async (issueId = selectedIssue?.id) => {
+    if (!issueId) return;
     const startedAt = new Date().toISOString();
 
     let { error } = await supabase
       .from("reports")
       .update({ status: "in_progress", started_at: startedAt })
-      .eq("id", selectedIssue.id);
+      .eq("id", issueId);
 
     if (error) {
       const fallback = await supabase
         .from("reports")
         .update({ status: "in_progress" })
-        .eq("id", selectedIssue.id);
+        .eq("id", issueId);
       error = fallback.error;
     }
 
     if (error) {
       console.error("Error starting attendance:", error.message);
+      showAttendanceNotice("Couldn't start attendance. Please try again.");
       return;
     }
 
     setReports((current) =>
-      current.map((r) => (r.id === selectedIssue.id ? { ...r, status: "in_progress", started_at: startedAt } : r))
+      current.map((r) => (r.id === issueId ? { ...r, status: "in_progress", started_at: startedAt } : r))
     );
+    showAttendanceNotice("Attendance started. Assignment is now in progress.");
+  };
+
+  const handleAssignmentAction = (issue) => {
+    focusIssueDetails(issue.id);
+    if (issue.status === "in_progress") {
+      showAttendanceNotice("Assignment started. Continue your work.");
+      return;
+    }
+    if (issue.status === "open") startAttendance(issue.id);
   };
 
   const handleCompletionFileChange = (event) => {
@@ -1084,7 +1113,7 @@ export default function Dashboard() {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            setSelectedIssueId(issue.id);
+                            handleAssignmentAction(issue);
                           }}
                           style={{
                             marginTop: 6,
@@ -1163,6 +1192,7 @@ export default function Dashboard() {
               <div
                 name="issue-details-card"
                 className="dashboard-issue-details-card"
+                ref={issueDetailsRef}
                 style={{
                   backgroundColor: COLORS.surface,
                   borderRadius: 20,
@@ -1540,6 +1570,30 @@ export default function Dashboard() {
 
         <Footer />
       </div>
+
+      {attendanceNotice && (
+        <div
+          role="status"
+          aria-live="polite"
+          style={{
+            position: "fixed",
+            right: 24,
+            bottom: 24,
+            zIndex: 3000,
+            maxWidth: "calc(100vw - 48px)",
+            padding: "12px 16px",
+            borderRadius: 12,
+            backgroundColor: attendanceNotice.startsWith("Couldn't") ? COLORS.red100 : COLORS.green100,
+            border: `1px solid ${attendanceNotice.startsWith("Couldn't") ? "#FECACA" : "#BBF7D0"}`,
+            color: attendanceNotice.startsWith("Couldn't") ? COLORS.red500 : COLORS.green700,
+            boxShadow: cardShadow,
+            fontSize: 13,
+            fontWeight: 600,
+          }}
+        >
+          {attendanceNotice}
+        </div>
+      )}
 
       {viewDetailsIssue && (
         <div

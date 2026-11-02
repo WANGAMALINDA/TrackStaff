@@ -63,6 +63,22 @@ const TSHWANE_BOUNDARY = [
 const TSHWANE_BOUNDS = L.latLngBounds(TSHWANE_BOUNDARY.map((p) => L.latLng(p[0], p[1])));
 const DEFAULT_MAP_CENTER = [-25.7461, 28.1881];
 
+function isValidCoordinates(latitude, longitude) {
+  return Number.isFinite(latitude)
+    && Number.isFinite(longitude)
+    && latitude >= -90
+    && latitude <= 90
+    && longitude >= -180
+    && longitude <= 180;
+}
+
+function hasCoordinateValues(latitude, longitude) {
+  return latitude != null
+    && longitude != null
+    && String(latitude).trim() !== ""
+    && String(longitude).trim() !== "";
+}
+
 const MAP_LAYERS = {
   street: {
     label: "Street",
@@ -226,6 +242,13 @@ export default function Dashboard() {
 
   const [selectedIssueId, setSelectedIssueId] = useState(null);
   const selectedIssue = reports.find((i) => i.id === selectedIssueId) || reports[0] || null;
+  const selectedIssueLatitude = Number(selectedIssue?.latitude);
+  const selectedIssueLongitude = Number(selectedIssue?.longitude);
+  const selectedIssueHasCoordinates = hasCoordinateValues(
+    selectedIssue?.latitude,
+    selectedIssue?.longitude
+  )
+    && isValidCoordinates(selectedIssueLatitude, selectedIssueLongitude);
 
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [mapFilter, setMapFilter] = useState("all");
@@ -351,13 +374,18 @@ export default function Dashboard() {
   useEffect(() => {
     if (!navigator.geolocation) return;
     navigator.geolocation.getCurrentPosition(
-      (pos) => setMyLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      (pos) => {
+        const { latitude, longitude } = pos.coords;
+        setMyLocation(isValidCoordinates(latitude, longitude)
+          ? { lat: latitude, lng: longitude }
+          : null);
+      },
       () => setMyLocation(null)
     );
   }, []);
 
   useEffect(() => {
-    if (!myLocation || selectedIssue?.latitude == null || selectedIssue?.longitude == null) {
+    if (!myLocation || !selectedIssueHasCoordinates) {
       setRouteCoordinates([]);
       setRouteInfo(null);
       return;
@@ -367,16 +395,26 @@ export default function Dashboard() {
     async function fetchRoute() {
       try {
         const origin = `${myLocation.lng},${myLocation.lat}`;
-        const destination = `${selectedIssue.longitude},${selectedIssue.latitude}`;
+        const destination = `${selectedIssueLongitude},${selectedIssueLatitude}`;
         const res = await fetch(
           `https://router.project-osrm.org/route/v1/driving/${origin};${destination}?overview=full&geometries=geojson`
         );
+        if (!res.ok) throw new Error(`Route request failed with status ${res.status}`);
         const data = await res.json();
         if (cancelled) return;
 
         const route = data?.routes?.[0];
         if (route?.geometry?.coordinates) {
-          setRouteCoordinates(route.geometry.coordinates.map(([lng, lat]) => [lat, lng]));
+          const validRouteCoordinates = route.geometry.coordinates
+            .filter((coordinate) => Array.isArray(coordinate) && coordinate.length >= 2)
+            .map(([longitude, latitude]) => [Number(latitude), Number(longitude)])
+            .filter(([latitude, longitude]) => isValidCoordinates(latitude, longitude));
+          if (validRouteCoordinates.length < 2) {
+            setRouteCoordinates([]);
+            setRouteInfo(null);
+            return;
+          }
+          setRouteCoordinates(validRouteCoordinates);
           setRouteInfo({
             distanceKm: (route.distance / 1000).toFixed(1),
             durationMin: Math.round(route.duration / 60),
@@ -397,12 +435,15 @@ export default function Dashboard() {
     return () => {
       cancelled = true;
     };
-  }, [myLocation, selectedIssue?.latitude, selectedIssue?.longitude]);
+  }, [myLocation, selectedIssueHasCoordinates, selectedIssueLatitude, selectedIssueLongitude]);
 
   const mapPoints = useMemo(() => {
     return reports
       .filter((report) => isVisibleOnMap(report, resolutions[report.id]))
-      .filter((r) => r.latitude != null && r.longitude != null)
+      .filter((report) => {
+        if (!hasCoordinateValues(report.latitude, report.longitude)) return false;
+        return isValidCoordinates(Number(report.latitude), Number(report.longitude));
+      })
       .filter((r) => selectedCategory === "all" || r.categories?.category_name === selectedCategory)
       .map((r) => ({
         id: r.id,
@@ -424,7 +465,8 @@ export default function Dashboard() {
       ([lat, lng], m) => [lat + m.position[0], lng + m.position[1]],
       [0, 0]
     );
-    return [latSum / mapPoints.length, lngSum / mapPoints.length];
+    const center = [latSum / mapPoints.length, lngSum / mapPoints.length];
+    return isValidCoordinates(center[0], center[1]) ? center : DEFAULT_MAP_CENTER;
   }, [mapPoints]);
 
   const activeAssignments = useMemo(
@@ -820,11 +862,11 @@ export default function Dashboard() {
 
                   <button
                     onClick={() => {
-                      if (!myLocation || !selectedIssue?.latitude || !selectedIssue?.longitude) return;
-                      const url = `https://www.google.com/maps/dir/?api=1&origin=${myLocation.lat},${myLocation.lng}&destination=${selectedIssue.latitude},${selectedIssue.longitude}&travelmode=driving`;
+                      if (!myLocation || !selectedIssueHasCoordinates) return;
+                      const url = `https://www.google.com/maps/dir/?api=1&origin=${myLocation.lat},${myLocation.lng}&destination=${selectedIssueLatitude},${selectedIssueLongitude}&travelmode=driving`;
                       window.open(url, "_blank", "noopener,noreferrer");
                     }}
-                    disabled={!myLocation || !selectedIssue?.latitude}
+                    disabled={!myLocation || !selectedIssueHasCoordinates}
                     title={!myLocation ? "Waiting for your location…" : "Open turn-by-turn voice directions"}
                     style={{
                       width: "100%",
@@ -832,11 +874,11 @@ export default function Dashboard() {
                       padding: "6px",
                       fontSize: 11,
                       fontWeight: 600,
-                      cursor: myLocation && selectedIssue?.latitude ? "pointer" : "not-allowed",
+                      cursor: myLocation && selectedIssueHasCoordinates ? "pointer" : "not-allowed",
                       border: "none",
                       borderRadius: 6,
-                      background: myLocation && selectedIssue?.latitude ? COLORS.blue500 : COLORS.ink200,
-                      color: myLocation && selectedIssue?.latitude ? "#FFFFFF" : COLORS.ink500,
+                      background: myLocation && selectedIssueHasCoordinates ? COLORS.blue500 : COLORS.ink200,
+                      color: myLocation && selectedIssueHasCoordinates ? "#FFFFFF" : COLORS.ink500,
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
@@ -938,12 +980,11 @@ export default function Dashboard() {
                     />
                   ) : (
                     myLocation &&
-                    selectedIssue?.latitude != null &&
-                    selectedIssue?.longitude != null && (
+                    selectedIssueHasCoordinates && (
                       <Polyline
                         positions={[
                           [myLocation.lat, myLocation.lng],
-                          [Number(selectedIssue.latitude), Number(selectedIssue.longitude)],
+                          [selectedIssueLatitude, selectedIssueLongitude],
                         ]}
                         pathOptions={{ color: COLORS.blue500, weight: 3, dashArray: "8 6" }}
                       />

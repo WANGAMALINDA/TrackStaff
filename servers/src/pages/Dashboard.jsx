@@ -518,27 +518,42 @@ export default function Dashboard() {
     if (!issueId) return;
     const startedAt = new Date().toISOString();
 
-    let { error } = await supabase
+    let { data: updatedReport, error } = await supabase
       .from("reports")
       .update({ status: "in_progress", started_at: startedAt })
-      .eq("id", issueId);
+      .eq("id", issueId)
+      .select("id, status, started_at")
+      .maybeSingle();
 
     if (error) {
       const fallback = await supabase
         .from("reports")
         .update({ status: "in_progress" })
-        .eq("id", issueId);
+        .eq("id", issueId)
+        .select("id, status")
+        .maybeSingle();
       error = fallback.error;
+      updatedReport = fallback.data;
     }
 
     if (error) {
       console.error("Error starting attendance:", error.message);
-      showAttendanceNotice("Couldn't start attendance. Please try again.");
+      showAttendanceNotice(`Couldn't start attendance: ${error.message}`);
+      return;
+    }
+
+    if (!updatedReport) {
+      console.error("Error starting attendance: no assigned report row was updated.");
+      showAttendanceNotice("Couldn't start attendance. The report could not be updated; check your access and try again.");
       return;
     }
 
     setReports((current) =>
-      current.map((r) => (r.id === issueId ? { ...r, status: "in_progress", started_at: startedAt } : r))
+      current.map((r) => (
+        r.id === issueId
+          ? { ...r, status: updatedReport.status, started_at: updatedReport.started_at || r.started_at || startedAt }
+          : r
+      ))
     );
     showAttendanceNotice("Attendance started. Assignment is now in progress.");
   };
@@ -1293,7 +1308,7 @@ export default function Dashboard() {
 
                     <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 16, gap: 4 }}>
                       {[
-                        { n: 1, label: "Start Attendance", state: selectedIssue.status !== "open" ? "done" : "current" },
+                        { n: 1, label: "Start Attendance", state: actionLabelForStatus(selectedIssue.status) !== "Start Attendance" ? "done" : "current" },
                         { n: 2, label: "In Progress", state: isSelectedIssueDone ? "done" : selectedIssue.status === "in_progress" ? "current" : "todo" },
                         { n: 3, label: "Upload Photo", state: selectedIssueResolution?.resolution_image_url ? "done" : completionStep === "review" ? "current" : "todo" },
                         { n: 4, label: "Finish Issue", state: isSelectedIssueDone ? "done" : completionPreviewUrl ? "current" : "todo" },
@@ -1330,7 +1345,7 @@ export default function Dashboard() {
                       ))}
                     </div>
 
-                    {selectedIssue.status === "open" && (
+                    {actionLabelForStatus(selectedIssue.status) === "Start Attendance" && (
                       <div style={{ backgroundColor: COLORS.green100, border: "1px solid #BBF7D0", borderRadius: 14, padding: 14 }}>
                         <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4, color: COLORS.ink900 }}>Start Attendance</div>
                         <div style={{ fontSize: 12, color: COLORS.ink700, marginBottom: 12 }}>

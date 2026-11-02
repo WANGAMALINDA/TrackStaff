@@ -20,8 +20,9 @@ import {
 import { supabase } from "./supabaseClient";
 
 const navItems = [
+   { key: "profile", label: "My Profile", icon: User, path: "/profile" },
   { key: "dashboard", label: "Dashboard", icon: Wrench, path: "/dashboard" },
-  { key: "profile", label: "My Profile", icon: User, path: "/profile" },
+ 
 ];
 
 const ALL_ISSUES_ITEM = { key: "all", label: "All Issues", icon: Circle, color: "#111827" };

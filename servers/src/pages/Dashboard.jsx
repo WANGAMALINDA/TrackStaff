@@ -254,7 +254,7 @@ export default function Dashboard() {
   const [mapFilter, setMapFilter] = useState("all");
   const [mapLayer, setMapLayer] = useState("street");
   const [chartFilter, setChartFilter] = useState("all");
-  const [assignedIssuesPage, setAssignedIssuesPage] = useState(0);
+  const [assignmentPage, setAssignmentPage] = useState(0);
 
   const [myLocation, setMyLocation] = useState(null);
   const [routeCoordinates, setRouteCoordinates] = useState([]);
@@ -477,15 +477,9 @@ export default function Dashboard() {
     () => reports.filter((r) => !["resolved", "closed", "rejected"].includes(r.status)),
     [reports]
   );
-  const assignedIssuesPageCount = Math.ceil(activeAssignments.length / 6);
-  const currentAssignedIssuesPage = Math.min(
-    assignedIssuesPage,
-    Math.max(0, assignedIssuesPageCount - 1)
-  );
-  const visibleAssignments = activeAssignments.slice(
-    currentAssignedIssuesPage * 6,
-    currentAssignedIssuesPage * 6 + 6
-  );
+  const assignmentPageCount = Math.ceil(activeAssignments.length / 3);
+  const currentAssignmentPage = Math.min(assignmentPage, Math.max(assignmentPageCount - 1, 0));
+  const visibleAssignments = activeAssignments.slice(currentAssignmentPage * 3, currentAssignmentPage * 3 + 3);
 
   const workHistory = useMemo(() => {
     return [...reports].sort((a, b) => new Date(b.assigned_at || b.created_at) - new Date(a.assigned_at || a.created_at)).map((r) => {
@@ -1071,6 +1065,47 @@ export default function Dashboard() {
                   <div name="assigned-issues-title" style={{ fontWeight: 700, fontSize: 16, color: COLORS.ink900 }}>
                     My Assigned Issues ({activeAssignments.length})
                   </div>
+                  {assignmentPageCount > 1 && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <button
+                        type="button"
+                        onClick={() => setAssignmentPage(currentAssignmentPage - 1)}
+                        disabled={currentAssignmentPage === 0}
+                        style={{
+                          padding: "6px 10px",
+                          border: `1px solid ${COLORS.ink200}`,
+                          borderRadius: 8,
+                          backgroundColor: COLORS.surface,
+                          color: currentAssignmentPage === 0 ? COLORS.ink300 : COLORS.ink700,
+                          cursor: currentAssignmentPage === 0 ? "not-allowed" : "pointer",
+                          fontSize: 12,
+                          fontWeight: 600,
+                        }}
+                      >
+                        Previous
+                      </button>
+                      <span aria-live="polite" style={{ color: COLORS.ink500, fontSize: 12, whiteSpace: "nowrap" }}>
+                        {currentAssignmentPage + 1} of {assignmentPageCount}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setAssignmentPage(currentAssignmentPage + 1)}
+                        disabled={currentAssignmentPage >= assignmentPageCount - 1}
+                        style={{
+                          padding: "6px 10px",
+                          border: `1px solid ${COLORS.ink200}`,
+                          borderRadius: 8,
+                          backgroundColor: COLORS.surface,
+                          color: currentAssignmentPage >= assignmentPageCount - 1 ? COLORS.ink300 : COLORS.ink700,
+                          cursor: currentAssignmentPage >= assignmentPageCount - 1 ? "not-allowed" : "pointer",
+                          fontSize: 12,
+                          fontWeight: 600,
+                        }}
+                      >
+                        Next
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {loadingReports && (
@@ -1184,55 +1219,6 @@ export default function Dashboard() {
                     );
                   })}
                 </div>
-                {activeAssignments.length > 0 && (
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      gap: 12,
-                      marginTop: 16,
-                    }}
-                  >
-                    <span style={{ fontSize: 12, color: COLORS.ink500 }}>
-                      Showing {currentAssignedIssuesPage * 6 + 1}–{Math.min((currentAssignedIssuesPage + 1) * 6, activeAssignments.length)} of {activeAssignments.length}
-                    </span>
-                    {assignedIssuesPageCount > 1 && (
-                      <div style={{ display: "flex", gap: 8 }}>
-                        <button
-                          type="button"
-                          onClick={() => setAssignedIssuesPage(currentAssignedIssuesPage - 1)}
-                          disabled={currentAssignedIssuesPage === 0}
-                          style={{
-                            border: `1px solid ${COLORS.ink200}`,
-                            borderRadius: 8,
-                            padding: "6px 12px",
-                            backgroundColor: COLORS.surface,
-                            color: currentAssignedIssuesPage === 0 ? COLORS.ink300 : COLORS.ink700,
-                            cursor: currentAssignedIssuesPage === 0 ? "not-allowed" : "pointer",
-                          }}
-                        >
-                          Previous
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setAssignedIssuesPage(currentAssignedIssuesPage + 1)}
-                          disabled={currentAssignedIssuesPage >= assignedIssuesPageCount - 1}
-                          style={{
-                            border: `1px solid ${COLORS.ink200}`,
-                            borderRadius: 8,
-                            padding: "6px 12px",
-                            backgroundColor: COLORS.surface,
-                            color: currentAssignedIssuesPage >= assignedIssuesPageCount - 1 ? COLORS.ink300 : COLORS.ink700,
-                            cursor: currentAssignedIssuesPage >= assignedIssuesPageCount - 1 ? "not-allowed" : "pointer",
-                          }}
-                        >
-                          Next
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
               </div>
 
               <div name="how-it-works-card" className="dashboard-how-it-works-card" style={{ backgroundColor: COLORS.surface, borderRadius: 20, border: `1px solid ${COLORS.ink200}`, boxShadow: cardShadow, padding: 20 }}>

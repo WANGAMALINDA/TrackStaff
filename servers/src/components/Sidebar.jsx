@@ -9,6 +9,7 @@ import {
   Circle,
   HeadphonesIcon,
   Menu,
+  RefreshCw,
   X,
   Wrench,
   LogOut,
@@ -269,6 +270,24 @@ export default function Sidebar({ children, activePage = "home", onPageChange, s
             <Search size={18} />
           </button>
         )}
+
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          aria-label="Refresh portal"
+          title="Refresh portal"
+          style={{
+            padding: 6,
+            color: "#6b7280",
+            background: "none",
+            border: "none",
+            borderRadius: 6,
+            cursor: "pointer",
+            flexShrink: 0,
+          }}
+        >
+          <RefreshCw size={18} />
+        </button>
 
         <button
           onClick={() => {

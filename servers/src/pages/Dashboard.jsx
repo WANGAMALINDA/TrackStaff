@@ -255,6 +255,8 @@ export default function Dashboard() {
   const [mapFilter, setMapFilter] = useState("all");
   const [mapLayer, setMapLayer] = useState("street");
   const [historySearch, setHistorySearch] = useState("");
+  const [historyStatus, setHistoryStatus] = useState("all");
+  const [historyType, setHistoryType] = useState("all");
   const [chartFilter, setChartFilter] = useState("all");
   const [assignmentPage, setAssignmentPage] = useState(0);
 
@@ -500,12 +502,17 @@ export default function Dashboard() {
   }, [reports, resolutions]);
   const filteredWorkHistory = useMemo(() => {
     const query = historySearch.trim().toLowerCase();
-    if (!query) return workHistory;
     return workHistory.filter((row) =>
-      [row.id, row.title, row.description, row.type, row.location, row.checkIn, row.checkOut, row.status]
-        .some((value) => String(value || "").toLowerCase().includes(query))
+      (historyStatus === "all" || row.status === historyStatus)
+      && (historyType === "all" || row.type === historyType)
+      && (!query || [row.id, row.title, row.description, row.type, row.location, row.checkIn, row.checkOut, row.status]
+        .some((value) => String(value || "").toLowerCase().includes(query)))
     );
-  }, [historySearch, workHistory]);
+  }, [historySearch, historyStatus, historyType, workHistory]);
+  const workHistoryTypes = useMemo(
+    () => [...new Set(workHistory.map((row) => row.type))].sort(),
+    [workHistory]
+  );
 
   const handleMapFilterSelect = (value) => {
     setMapFilter(value);
@@ -1569,17 +1576,37 @@ export default function Dashboard() {
               <div className="dashboard-work-history-card" style={{ backgroundColor: COLORS.surface, borderRadius: 20, border: `1px solid ${COLORS.ink200}`, boxShadow: cardShadow, padding: 20, overflow: "hidden" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10, marginBottom: 12 }}>
                   <div style={{ fontWeight: 700, fontSize: 15, color: COLORS.ink900 }}>My Work History / Reports</div>
-                  <label style={{ position: "relative", display: "flex", alignItems: "center", minWidth: 180 }}>
-                    <Search size={14} aria-hidden="true" style={{ position: "absolute", left: 9, color: COLORS.ink500 }} />
-                    <input
-                      type="search"
-                      value={historySearch}
-                      onChange={(event) => setHistorySearch(event.target.value)}
-                      placeholder="Search work history"
-                      aria-label="Search work history and reports"
-                      style={{ width: "100%", border: `1px solid ${COLORS.ink200}`, borderRadius: 8, padding: "7px 9px 7px 29px", fontSize: 12, color: COLORS.ink900 }}
-                    />
-                  </label>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    <label style={{ position: "relative", display: "flex", alignItems: "center", minWidth: 180 }}>
+                      <Search size={14} aria-hidden="true" style={{ position: "absolute", left: 9, color: COLORS.ink500 }} />
+                      <input
+                        type="search"
+                        value={historySearch}
+                        onChange={(event) => setHistorySearch(event.target.value)}
+                        placeholder="Search work history"
+                        aria-label="Search work history and reports"
+                        style={{ width: "100%", border: `1px solid ${COLORS.ink200}`, borderRadius: 8, padding: "7px 9px 7px 29px", fontSize: 12, color: COLORS.ink900 }}
+                      />
+                    </label>
+                    <select
+                      value={historyStatus}
+                      onChange={(event) => setHistoryStatus(event.target.value)}
+                      aria-label="Filter work history by status"
+                      style={{ border: `1px solid ${COLORS.ink200}`, borderRadius: 8, padding: "7px 9px", fontSize: 12, color: COLORS.ink700, backgroundColor: COLORS.surface }}
+                    >
+                      <option value="all">All statuses</option>
+                      {Object.keys(STATUS_META).map((status) => <option key={status} value={status}>{status}</option>)}
+                    </select>
+                    <select
+                      value={historyType}
+                      onChange={(event) => setHistoryType(event.target.value)}
+                      aria-label="Filter work history by type"
+                      style={{ border: `1px solid ${COLORS.ink200}`, borderRadius: 8, padding: "7px 9px", fontSize: 12, color: COLORS.ink700, backgroundColor: COLORS.surface }}
+                    >
+                      <option value="all">All types</option>
+                      {workHistoryTypes.map((type) => <option key={type} value={type}>{type}</option>)}
+                    </select>
+                  </div>
                 </div>
 
                 <div style={{ overflowX: "auto", overflowY: "auto", maxHeight: 190, width: "100%" }}>
@@ -1597,7 +1624,7 @@ export default function Dashboard() {
                       {filteredWorkHistory.length === 0 && (
                         <tr>
                           <td colSpan={7} style={{ padding: "10px 4px", color: COLORS.ink500, fontSize: 12 }}>
-                            {workHistory.length ? "No work history matches your search." : "No work history yet."}
+                            {workHistory.length ? "No work history matches your filters." : "No work history yet."}
                           </td>
                         </tr>
                       )}
